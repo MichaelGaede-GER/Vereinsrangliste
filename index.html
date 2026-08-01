@@ -203,6 +203,39 @@
   .msg-box.err{background:var(--danger-soft);color:var(--danger)}
   .seed-num{font-family:var(--f-mono);font-weight:600;color:var(--ink)}
 
+  /* Gruppen / Spielplan */
+  .group-block{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
+    box-shadow:var(--shadow);margin-bottom:22px;overflow:hidden}
+  .group-block .gb-head{display:flex;align-items:center;justify-content:space-between;
+    padding:14px 18px;border-bottom:1px solid var(--border);background:#FBFBFA}
+  .group-block .gb-head h3{font-size:16px}
+  .group-block .gb-head .gb-sub{font-size:12px;color:var(--muted);font-weight:400;margin-left:8px}
+  .gb-section-title{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;
+    color:var(--muted);padding:14px 18px 6px}
+  table.matches{width:100%;border-collapse:collapse}
+  table.matches th{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.03em;
+    color:var(--muted);text-align:left;padding:8px 10px;border-bottom:1px solid var(--border)}
+  table.matches td{padding:7px 10px;border-bottom:1px solid var(--border);vertical-align:middle;font-size:14px}
+  table.matches tr:last-child td{border-bottom:none}
+  table.matches .mno{font-family:var(--f-mono);color:var(--muted);font-size:12px;width:34px}
+  table.matches .who{white-space:nowrap}
+  table.matches .vs{color:var(--muted);text-align:center;width:24px}
+  .mini{width:52px;padding:6px 7px;border:1px solid var(--border-strong);border-radius:6px;
+    text-align:center;font-family:var(--f-mono);font-size:14px}
+  .mini.court{width:60px;text-align:left;font-family:inherit}
+  .mini.time{width:74px}
+  .score{width:44px;padding:6px;border:1px solid var(--border-strong);border-radius:6px;
+    text-align:center;font-family:var(--f-mono);font-size:15px;font-weight:600}
+  table.standings{width:100%;border-collapse:collapse}
+  table.standings th{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.03em;
+    color:var(--muted);text-align:left;padding:8px 10px;border-bottom:1px solid var(--border)}
+  table.standings td{padding:8px 10px;border-bottom:1px solid var(--border);font-size:14px}
+  table.standings tr:last-child td{border-bottom:none}
+  table.standings .pos{font-family:var(--f-mono);font-weight:600;width:34px}
+  table.standings .st{font-family:var(--f-mono);text-align:center;width:40px}
+  table.standings tr.top td{background:var(--ok-soft)}
+  .gb-foot{padding:14px 18px;display:flex;justify-content:flex-end;gap:10px;border-top:1px solid var(--border)}
+
   @media(max-width:640px){
     .actions-cell{text-align:left}
     thead th.hide-sm,tbody td.hide-sm{display:none}
@@ -298,6 +331,7 @@
       <div class="subtabs">
         <button id="subtabReg" class="on">Anmeldungen</button>
         <button id="subtabSeed">Setzung</button>
+        <button id="subtabPlan">Spielplan</button>
       </div>
 
       <div id="subAnmeldungen">
@@ -340,6 +374,18 @@
             <strong>Noch keine Teilnehmer</strong>
             Melde zuerst Spieler an, dann lies die Rangliste ein.
           </div>
+        </div>
+      </div>
+
+      <div id="subSpielplan" class="hidden">
+        <div class="page-head" style="margin-bottom:14px">
+          <div style="display:flex;align-items:center;gap:12px"><h2 style="font-size:18px">Spielplan</h2></div>
+          <button class="btn btn-primary btn-sm" id="addGroupBtn">+ Gruppe erstellen</button>
+        </div>
+        <div id="groupsContainer"></div>
+        <div id="groupsEmpty" class="empty card hidden">
+          <strong>Noch keine Gruppe</strong>
+          Erstelle eine Gruppe aus der Setzung — die Spiele werden automatisch angelegt.
         </div>
       </div>
     </div>
@@ -424,6 +470,30 @@
       <span style="flex:1"></span>
       <button class="btn" data-close-import>Abbrechen</button>
       <button class="btn btn-primary hidden" id="applySeedBtn">Setzung übernehmen</button>
+    </div>
+  </div>
+</div>
+
+<!-- GRUPPE ERSTELLEN -->
+<div id="groupModal" class="overlay hidden">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-head"><h3>Gruppe erstellen</h3><button class="x-close" data-close-group>×</button></div>
+    <div class="modal-body">
+      <p class="hint" style="margin-top:0;color:var(--muted);font-size:13px">
+        Die Teilnehmer werden nach der gespeicherten Setzung übernommen — die obersten Spieler zuerst.</p>
+      <label class="lbl">Name der Gruppe</label>
+      <input id="grName" class="field" value="Gruppe A">
+      <div class="row" style="margin-top:14px">
+        <div><label class="lbl">Anzahl Spieler</label><input id="grSize" class="field mono" type="number" min="3" max="32" value="5"></div>
+        <div><label class="lbl">Modus</label>
+          <select id="grFormat" class="field"><option value="round_robin">Jeder gegen jeden</option></select></div>
+      </div>
+      <div id="grHint" class="msg-box hidden"></div>
+    </div>
+    <div class="modal-foot">
+      <span style="flex:1"></span>
+      <button class="btn" data-close-group>Abbrechen</button>
+      <button class="btn btn-primary" id="createGroupBtn">Gruppe & Spielplan erstellen</button>
     </div>
   </div>
 </div>
@@ -539,6 +609,7 @@ let STATUSES = [], PLAYERS = [], EVENTS = [];
 let currentEvent = null, currentRegs = [];
 let signupMode = false, convertRegId = null;
 let seedList = [], pendingProposal = null;
+let GROUPS = [], GPLAYERS = [], MATCHES = [];
 
 if(window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc =
   "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
@@ -839,6 +910,7 @@ async function openEvent(id){
 
   renderRegs();
   initSeedList();
+  await loadTournament();
   setSubtab("reg");
 }
 function renderRegs(){
@@ -925,11 +997,14 @@ $("#saveRankingBtn").addEventListener("click", async ()=>{
 function setSubtab(which){
   $("#subtabReg").classList.toggle("on", which==="reg");
   $("#subtabSeed").classList.toggle("on", which==="seed");
+  $("#subtabPlan").classList.toggle("on", which==="plan");
   $("#subAnmeldungen").classList.toggle("hidden", which!=="reg");
   $("#subSetzung").classList.toggle("hidden", which!=="seed");
+  $("#subSpielplan").classList.toggle("hidden", which!=="plan");
 }
 $("#subtabReg").addEventListener("click", ()=>setSubtab("reg"));
 $("#subtabSeed").addEventListener("click", ()=>setSubtab("seed"));
+$("#subtabPlan").addEventListener("click", ()=>setSubtab("plan"));
 
 function regName(r){
   if(r.player_id){ const p=PLAYERS.find(x=>x.id===r.player_id); return p?`${p.first_name} ${p.last_name}`:""; }
@@ -1105,6 +1180,200 @@ $("#applySeedBtn").addEventListener("click", ()=>{
   setSubtab("seed");
   toast("Setzung erstellt — jetzt noch mit dem Button sichern.");
 });
+
+// ---------- Turnier / Spielplan ----------
+function roundRobin(n){
+  const arr=[...Array(n).keys()].map(i=>i+1);
+  if(arr.length%2) arr.push(0);           // 0 = Freilos
+  const m=arr.length, rounds=[];
+  for(let r=0;r<m-1;r++){
+    const pairs=[];
+    for(let i=0;i<m/2;i++){ const a=arr[i], b=arr[m-1-i]; if(a&&b) pairs.push([a,b]); }
+    rounds.push(pairs);
+    arr.splice(1,0,arr.pop());            // rotieren, Position 0 fest
+  }
+  return rounds;
+}
+function regShort(regId){
+  const r=currentRegs.find(x=>x.id===regId); if(!r) return "—";
+  if(r.player_id){ const p=PLAYERS.find(x=>x.id===r.player_id);
+    return p?`${esc(p.last_name)}, ${esc((p.first_name||"")[0]||"")}.`:"(gelöscht)"; }
+  return `${esc(r.guest_last_name||"")}, ${esc((r.guest_first_name||"")[0]||"")}.`;
+}
+
+async function loadTournament(){
+  const {data:g}=await sb.from("groups").select("*").eq("event_id",currentEvent.id).order("sort_order").order("created_at");
+  GROUPS=g||[];
+  const ids=GROUPS.map(x=>x.id);
+  if(ids.length){
+    const {data:gp}=await sb.from("group_players").select("*").in("group_id",ids);
+    const {data:mm}=await sb.from("matches").select("*").eq("event_id",currentEvent.id).order("sort_order");
+    GPLAYERS=gp||[]; MATCHES=mm||[];
+  }else{ GPLAYERS=[]; MATCHES=[]; }
+  renderGroups();
+}
+
+function renderGroups(){
+  $("#groupsEmpty").classList.toggle("hidden", GROUPS.length>0);
+  $("#groupsContainer").innerHTML = GROUPS.map(g=>{
+    const matches=MATCHES.filter(m=>m.group_id===g.id).sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
+    const rows=matches.map(m=>`
+      <tr>
+        <td class="mno">${m.match_no??""}</td>
+        <td><input class="mini court" data-mid="${m.id}" data-f="court" value="${esc(m.court||"")}" placeholder="Court"></td>
+        <td><input class="mini time" type="time" data-mid="${m.id}" data-f="time" value="${m.scheduled_time?m.scheduled_time.slice(0,5):""}"></td>
+        <td class="who" style="text-align:right">${regShort(m.home_reg_id)}</td>
+        <td><input class="score" type="number" min="0" data-mid="${m.id}" data-f="hs" value="${m.home_score??""}"></td>
+        <td class="vs">:</td>
+        <td><input class="score" type="number" min="0" data-mid="${m.id}" data-f="as" value="${m.away_score??""}"></td>
+        <td class="who">${regShort(m.away_reg_id)}</td>
+      </tr>`).join("");
+
+    const standings = computeStandings(g.id);
+    const srows = standings.map((s,i)=>`
+      <tr class="${i===0?"top":""}">
+        <td class="pos">${i+1}</td>
+        <td>${regShort(s.regId)}</td>
+        <td class="st">${s.played}</td>
+        <td class="st">${s.wins}</td>
+        <td class="st">${s.losses}</td>
+        <td class="st">${s.diff>0?"+":""}${s.diff}</td>
+      </tr>`).join("");
+
+    return `<div class="group-block" data-gid="${g.id}">
+      <div class="gb-head">
+        <h3>${esc(g.name)}<span class="gb-sub">${matches.length} Spiele · jeder gegen jeden</span></h3>
+        <button class="btn btn-danger btn-sm" data-delgroup="${g.id}">Gruppe löschen</button>
+      </div>
+      <div class="gb-section-title">Spielplan</div>
+      <div style="overflow-x:auto"><table class="matches">
+        <thead><tr><th>Nr</th><th>Court</th><th>Zeit</th><th style="text-align:right">Heim</th><th></th><th></th><th></th><th>Gast</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>
+      <div class="gb-section-title">Tabelle</div>
+      <div style="overflow-x:auto"><table class="standings">
+        <thead><tr><th>Pl.</th><th>Spieler</th><th class="st">Sp</th><th class="st">S</th><th class="st">N</th><th class="st">Diff</th></tr></thead>
+        <tbody>${srows}</tbody>
+      </table></div>
+      <div class="gb-foot">
+        <button class="btn btn-primary btn-sm" data-savegroup="${g.id}">Court, Zeit & Ergebnisse speichern</button>
+      </div>
+    </div>`;
+  }).join("");
+
+  $("#groupsContainer").querySelectorAll("[data-delgroup]").forEach(b=>b.addEventListener("click",()=>deleteGroup(b.dataset.delgroup)));
+  $("#groupsContainer").querySelectorAll("[data-savegroup]").forEach(b=>b.addEventListener("click",()=>saveGroup(b.dataset.savegroup)));
+  // Live-Tabelle beim Tippen der Ergebnisse
+  $("#groupsContainer").querySelectorAll("input.score").forEach(inp=>inp.addEventListener("input",()=>recalcLive(inp)));
+}
+
+// Bei Eingabe eines Ergebnisses lokal übernehmen und Tabelle sofort aktualisieren
+function recalcLive(inp){
+  const m=MATCHES.find(x=>x.id===inp.dataset.mid); if(!m) return;
+  const v=inp.value===""?null:parseInt(inp.value);
+  if(inp.dataset.f==="hs") m.home_score=v; else m.away_score=v;
+  m.status=(m.home_score!=null && m.away_score!=null)?"done":"pending";
+  // nur die Tabelle dieser Gruppe neu zeichnen wäre aufwändig – Gesamt-Rerender ist ok
+  const active=document.activeElement;
+  const gid=m.group_id;
+  const block=$("#groupsContainer").querySelector(`[data-gid="${gid}"] table.standings tbody`);
+  if(block){
+    const st=computeStandings(gid);
+    block.innerHTML=st.map((s,i)=>`<tr class="${i===0?"top":""}"><td class="pos">${i+1}</td><td>${regShort(s.regId)}</td><td class="st">${s.played}</td><td class="st">${s.wins}</td><td class="st">${s.losses}</td><td class="st">${s.diff>0?"+":""}${s.diff}</td></tr>`).join("");
+  }
+  if(active) active.focus();
+}
+
+function computeStandings(groupId){
+  const members=GPLAYERS.filter(gp=>gp.group_id===groupId).sort((a,b)=>a.position-b.position);
+  const stat={};
+  members.forEach(gp=> stat[gp.registration_id]={regId:gp.registration_id, pos:gp.position, played:0,wins:0,losses:0,sf:0,sa:0,diff:0});
+  MATCHES.filter(m=>m.group_id===groupId && m.home_score!=null && m.away_score!=null).forEach(m=>{
+    const h=stat[m.home_reg_id], a=stat[m.away_reg_id]; if(!h||!a) return;
+    h.played++; a.played++; h.sf+=m.home_score; h.sa+=m.away_score; a.sf+=m.away_score; a.sa+=m.home_score;
+    if(m.home_score>m.away_score){ h.wins++; a.losses++; }
+    else if(m.away_score>m.home_score){ a.wins++; h.losses++; }
+  });
+  const arr=Object.values(stat);
+  arr.forEach(s=> s.diff=s.sf-s.sa);
+  arr.sort((x,y)=> y.wins-x.wins || y.diff-x.diff || y.sf-x.sf || x.pos-y.pos);
+  return arr;
+}
+
+// ---- Gruppe erstellen ----
+$("#addGroupBtn").addEventListener("click", ()=>{
+  const seeded=seedList.length;
+  if(seeded<3){ toast("Es müssen mindestens 3 Spieler gesetzt sein.",true); return; }
+  $("#grName").value="Gruppe "+String.fromCharCode(65+GROUPS.length);
+  $("#grSize").value=Math.min(seeded,5);
+  $("#grSize").max=seeded;
+  $("#grHint").className="msg-box hidden";
+  $("#groupModal").classList.remove("hidden");
+});
+document.querySelectorAll("[data-close-group]").forEach(b=>b.addEventListener("click",()=>$("#groupModal").classList.add("hidden")));
+
+$("#createGroupBtn").addEventListener("click", async ()=>{
+  const name=$("#grName").value.trim()||"Gruppe";
+  const size=parseInt($("#grSize").value);
+  if(!size || size<3){ toast("Bitte mindestens 3 Spieler.",true); return; }
+  if(size>seedList.length){ toast("So viele gesetzte Spieler gibt es nicht.",true); return; }
+  const parts=seedList.slice(0,size).map(it=>it.reg);   // Top-N nach Setzung
+
+  const btn=$("#createGroupBtn"); btn.disabled=true;
+  try{
+    const {data:grp,error:ge}=await sb.from("groups").insert({
+      event_id:currentEvent.id, name, format:"round_robin", size, sort_order:GROUPS.length
+    }).select().single();
+    if(ge) throw ge;
+
+    await sb.from("group_players").insert(parts.map((r,i)=>({ group_id:grp.id, registration_id:r.id, position:i+1 })));
+
+    const rounds=roundRobin(size);
+    let no=1; const rows=[];
+    rounds.forEach((rd,ri)=> rd.forEach(([a,b])=>{
+      rows.push({ event_id:currentEvent.id, group_id:grp.id, match_no:no, round:ri+1,
+        home_reg_id:parts[a-1].id, away_reg_id:parts[b-1].id, sort_order:no, status:"pending" });
+      no++;
+    }));
+    await sb.from("matches").insert(rows);
+
+    $("#groupModal").classList.add("hidden");
+    await loadTournament();
+    setSubtab("plan");
+    toast("Gruppe & Spielplan erstellt.");
+  }catch(e){ toast(e.message,true); }
+  finally{ btn.disabled=false; }
+});
+
+async function deleteGroup(id){
+  if(!confirm("Gruppe mit Spielplan und Ergebnissen löschen?")) return;
+  const {error}=await sb.from("groups").delete().eq("id",id);
+  if(error){ toast(error.message,true); return; }
+  await loadTournament(); toast("Gruppe gelöscht.");
+}
+
+async function saveGroup(gid){
+  const block=$("#groupsContainer").querySelector(`[data-gid="${gid}"]`);
+  const byMatch={};
+  block.querySelectorAll("input[data-mid]").forEach(inp=>{
+    const id=inp.dataset.mid; (byMatch[id]=byMatch[id]||{});
+    const v=inp.value;
+    if(inp.dataset.f==="court") byMatch[id].court=v.trim()||null;
+    if(inp.dataset.f==="time")  byMatch[id].scheduled_time=v||null;
+    if(inp.dataset.f==="hs")    byMatch[id].home_score=v===""?null:parseInt(v);
+    if(inp.dataset.f==="as")    byMatch[id].away_score=v===""?null:parseInt(v);
+  });
+  const updates=Object.entries(byMatch).map(([id,f])=>{
+    f.status=(f.home_score!=null && f.away_score!=null)?"done":"pending";
+    return sb.from("matches").update(f).eq("id",id);
+  });
+  const btn=block.querySelector("[data-savegroup]"); btn.disabled=true;
+  const results=await Promise.all(updates); btn.disabled=false;
+  const bad=results.find(r=>r.error);
+  if(bad){ toast(bad.error.message,true); return; }
+  await loadTournament(); setSubtab("plan");
+  toast("Gespeichert.");
+}
 
 // ---------- Helpers ----------
 function esc(s){ return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
