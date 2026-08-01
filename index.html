@@ -1264,17 +1264,44 @@ function roundRobin(n){
 // slots: null = Freilos.  placements: a/b = Platz in Gruppe A / Gruppe B.
 const MODES=[
   { id:"single_rr", label:"Einzelgruppe — jeder gegen jeden", min:3, max:32, sizable:true,
-    build(parts){ return { groups:[{name:"Gruppe A", slots:parts.slice()}], placements:[] }; } },
+    build(parts){ return { groups:[{name:"Gruppe A", slots:parts.slice()}], finalGroups:[], placements:[] }; } },
   { id:"duo4", label:"2 × 4er-Gruppe + Platzierung (6–8 Teilnehmer)", min:6, max:8, sizable:false,
     build(parts){
       const A=[parts[0],parts[2],parts[4],parts[6]].map(x=>x||null);
       const B=[parts[1],parts[3],parts[5],parts[7]].map(x=>x||null);
-      return { groups:[{name:"Gruppe A",slots:A},{name:"Gruppe B",slots:B}],
+      return { groups:[{name:"Gruppe A",slots:A},{name:"Gruppe B",slots:B}], finalGroups:[],
         placements:[
           {label:"Finale (Platz 1–2)", a:1, b:1},
           {label:"Platz 3–4", a:2, b:2},
           {label:"Platz 5–6", a:3, b:3},
           {label:"Platz 7–8", a:4, b:4},
+        ] };
+    } },
+  { id:"trio3", label:"3 × 3er-Gruppe + Platzierungsrunden (7–9 Teilnehmer)", min:7, max:9, sizable:false,
+    build(parts){
+      const G=[[],[],[]];
+      for(let i=0;i<9;i++) G[i%3].push(parts[i]||null);   // reihum verteilen: A=1,4,7 · B=2,5,8 · C=3,6,9
+      return {
+        groups:[{name:"Gruppe A",slots:G[0]},{name:"Gruppe B",slots:G[1]},{name:"Gruppe C",slots:G[2]}],
+        finalGroups:[
+          {name:"Platz 1–3", sources:[{g:0,place:1},{g:1,place:1},{g:2,place:1}]},
+          {name:"Platz 4–6", sources:[{g:0,place:2},{g:1,place:2},{g:2,place:2}]},
+          {name:"Platz 7–9", sources:[{g:0,place:3},{g:1,place:3},{g:2,place:3}]},
+        ],
+        placements:[]
+      };
+    } },
+  { id:"duo5", label:"2 × 5er-Gruppe + Platzierung (9–10 Teilnehmer)", min:9, max:10, sizable:false,
+    build(parts){
+      const A=[parts[0],parts[2],parts[4],parts[6],parts[8]].map(x=>x||null);
+      const B=[parts[1],parts[3],parts[5],parts[7],parts[9]].map(x=>x||null);
+      return { groups:[{name:"Gruppe A",slots:A},{name:"Gruppe B",slots:B}], finalGroups:[],
+        placements:[
+          {label:"Finale (Platz 1–2)", a:1, b:1},
+          {label:"Platz 3–4", a:2, b:2},
+          {label:"Platz 5–6", a:3, b:3},
+          {label:"Platz 7–8", a:4, b:4},
+          {label:"Platz 9–10", a:5, b:5},
         ] };
     } },
 ];
@@ -1291,6 +1318,14 @@ function groupOrderedRegs(groupId){ return computeStandings(groupId).map(s=>s.re
 function placeReg(groupId, place){
   const r=groupOrderedRegs(groupId);
   return (place-1<r.length)? r[place-1] : null;
+}
+// Mitglieder einer Gruppe als {regId,pos} — echte Spieler oder aus Gruppenplätzen aufgelöst
+function groupMemberRegs(groupId){
+  return GPLAYERS.filter(gp=>gp.group_id===groupId).map(gp=>{
+    if(gp.registration_id) return {regId:gp.registration_id, pos:gp.position};
+    if(gp.src_group) return {regId:placeReg(gp.src_group, gp.src_place), pos:gp.position};
+    return {regId:null, pos:gp.position};
+  }).filter(m=>m.regId).sort((a,b)=>a.pos-b.pos);
 }
 function regShort(regId){
   const r=currentRegs.find(x=>x.id===regId); if(!r) return "—";
@@ -1316,7 +1351,8 @@ function renderGroups(){
   $("#groupsEmpty").classList.toggle("hidden", hasT);
   if($("#resetTournBtn")) $("#resetTournBtn").classList.toggle("hidden", !hasT);
   const need=currentEvent.win_sets||3;
-  let html = GROUPS.map(g=> renderGroupBlock(g,need)).join("");
+  let html = GROUPS.filter(g=>g.stage!=="final").map(g=> renderGroupBlock(g,need)).join("");
+  html += GROUPS.filter(g=>g.stage==="final").map(g=> renderFinalBlock(g,need)).join("");
   html += renderPlacements(need);
   $("#groupsContainer").innerHTML = html;
 
@@ -1367,6 +1403,49 @@ function renderGroupBlock(g,need){
     <div class="gb-foot" style="justify-content:flex-start">
       <span class="hint" style="margin:0;color:var(--muted);font-size:12px">Court &amp; Zeit speichern automatisch. Ergebnis über „Ergebnis" eintragen.</span>
     </div>
+  </div>`;
+}
+
+function renderFinalBlock(g,need){
+  const gps=GPLAYERS.filter(x=>x.group_id===g.id).sort((a,b)=>a.position-b.position);
+  const srcIds=[...new Set(gps.map(x=>x.src_group).filter(Boolean))];
+  const ready=srcIds.length>0 && srcIds.every(id=>groupComplete(id));
+  const matches=MATCHES.filter(m=>m.group_id===g.id).sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
+  matches.forEach(m=>{
+    m.home_reg_id = ready?placeReg(m.home_src_group,m.home_src_place):null;
+    m.away_reg_id = ready?placeReg(m.away_src_group,m.away_src_place):null;
+  });
+  const rows=matches.map(m=>{
+    let cell,hn="—",an="—";
+    if(!ready){ cell=`<span style="color:var(--muted);font-size:13px">wartet auf Gruppenphase</span>`; }
+    else{
+      const a=m.home_reg_id, b=m.away_reg_id;
+      if(!a&&!b){ cell=`<span style="color:var(--muted)">entfällt</span>`; }
+      else if(!a||!b){ const w=a||b; hn=a?regShort(a):"Freilos"; an=b?regShort(b):"Freilos"; cell=`<span style="color:var(--ok);font-size:13px">${regShort(w)} — kampflos</span>`; }
+      else { hn=regShort(a); an=regShort(b); cell=matchSummary(m); }
+    }
+    return `<tr>
+      <td class="mno">${m.match_no??""}</td>
+      <td><input class="mini court" data-mid="${m.id}" data-f="court" value="${esc(m.court||"")}" placeholder="Court"></td>
+      <td><input class="mini time" type="time" data-mid="${m.id}" data-f="time" value="${m.scheduled_time?m.scheduled_time.slice(0,5):""}"></td>
+      <td class="who" style="text-align:right">${hn}</td>
+      <td style="text-align:center;white-space:nowrap">${cell}</td>
+      <td class="who">${an}</td>
+    </tr>`;
+  }).join("");
+  let srows;
+  if(ready){
+    const st=computeStandings(g.id);
+    srows=st.map((s,i)=>`<tr class="${i===0?"top":""}"><td class="pos">${i+1}</td><td>${regShort(s.regId)}</td><td class="st">${s.played}</td><td class="st">${s.wins}</td><td class="st">${s.losses}</td><td class="st mono">${s.points}</td><td class="st mono">${s.setsWon}:${s.setsLost}</td><td class="st mono">${s.ballsWon}:${s.ballsLost}</td></tr>`).join("");
+  } else {
+    srows=`<tr><td colspan="8" style="color:var(--muted);text-align:center;padding:16px">Teilnehmer stehen nach der Gruppenphase fest.</td></tr>`;
+  }
+  return `<div class="group-block" data-gid="${g.id}">
+    <div class="gb-head"><h3>${esc(g.name)}<span class="gb-sub">Platzierungsrunde · ${need} Gewinnsätze</span></h3></div>
+    <div class="gb-section-title">Spielplan</div>
+    <div style="overflow-x:auto"><table class="matches"><thead><tr><th>Nr</th><th>Court</th><th>Zeit</th><th style="text-align:right">Heim</th><th style="text-align:center">Ergebnis</th><th>Gast</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <div class="gb-section-title">Tabelle</div>
+    <div style="overflow-x:auto"><table class="standings"><thead><tr><th>Pl.</th><th>Spieler</th><th class="st">Sp</th><th class="st">S</th><th class="st">N</th><th class="st">Pkte</th><th class="st">Sätze</th><th class="st">Bälle</th></tr></thead><tbody>${srows}</tbody></table></div>
   </div>`;
 }
 
@@ -1427,11 +1506,11 @@ async function autoSaveField(inp){
 }
 
 function computeStandings(groupId){
-  const members=GPLAYERS.filter(gp=>gp.group_id===groupId && gp.registration_id).sort((a,b)=>a.position-b.position);
-  const ids=members.map(m=>m.registration_id);
+  const members=groupMemberRegs(groupId);
+  const ids=members.map(m=>m.regId);
   const ppw=STANDINGS.pointsPerWin||2;
   const stat={};
-  members.forEach(gp=> stat[gp.registration_id]={regId:gp.registration_id, pos:gp.position,
+  members.forEach(m=> stat[m.regId]={regId:m.regId, pos:m.pos,
     played:0,wins:0,losses:0,setsWon:0,setsLost:0,ballsWon:0,ballsLost:0,points:0});
   const gmatches=MATCHES.filter(m=>m.group_id===groupId).map(m=>{
     const sets=(Array.isArray(m.sets)?m.sets:[]).filter(s=>s&&s.length===2&&s[0]!=null&&s[1]!=null);
@@ -1506,7 +1585,9 @@ function syncModeUi(){
   let msg="";
   if(mode){
     const use = mode.sizable ? (parseInt($("#grSize").value)||seeded) : Math.min(seeded, mode.max);
-    if(mode.id==="duo4"){ const byes=8-Math.min(seeded,8); msg=`2 Gruppen à 4 · ${Math.min(seeded,8)} Spieler · ${byes} Freilos`; }
+    if(mode.id==="duo4"){ const byes=8-Math.min(seeded,8); msg=`2 Gruppen à 4 · ${Math.min(seeded,8)} Spieler · ${byes} Freilos · Platzierung überkreuz`; }
+    else if(mode.id==="trio3"){ const n=Math.min(seeded,9); const byes=9-n; msg=`3 Gruppen à 3 · ${n} Spieler${byes?` · ${byes} Freilos`:""} · Platzierungsrunden 1–3 / 4–6 / 7–9`; }
+    else if(mode.id==="duo5"){ const n=Math.min(seeded,10); const byes=10-n; msg=`2 Gruppen à 5 · ${n} Spieler${byes?` · ${byes} Freilos`:""} · Platzierung überkreuz (1–2 … 9–10)`; }
     else msg=`Eine Gruppe mit ${use} Spielern · ${use*(use-1)/2} Spiele`;
   }
   const h=$("#grHint"); h.className="msg-box ok"; h.textContent=msg;
@@ -1571,6 +1652,30 @@ $("#createGroupBtn").addEventListener("click", async ()=>{
         no++;
       }));
       if(rows.length) await sb.from("matches").insert(rows);
+    }
+
+    if(plan.finalGroups && plan.finalGroups.length){
+      for(let fi=0; fi<plan.finalGroups.length; fi++){
+        const fg=plan.finalGroups[fi];
+        const size=fg.sources.length;
+        const {data:grp,error:fe}=await sb.from("groups").insert({
+          event_id:currentEvent.id, name:fg.name, format:"round_robin", size, stage:"final", sort_order:100+fi
+        }).select().single();
+        if(fe) throw fe;
+        await sb.from("group_players").insert(fg.sources.map((s,i)=>({
+          group_id:grp.id, position:i+1, src_group:groupIds[s.g], src_place:s.place, is_bye:false
+        })));
+        const rounds=roundRobin(size);
+        let no=1; const rows=[];
+        rounds.forEach((rd,ri)=> rd.forEach(([a,b])=>{
+          const sa=fg.sources[a-1], sb2=fg.sources[b-1];
+          rows.push({ event_id:currentEvent.id, group_id:grp.id, phase:"final", match_no:no, round:ri+1,
+            home_src_group:groupIds[sa.g], home_src_place:sa.place,
+            away_src_group:groupIds[sb2.g], away_src_place:sb2.place, sort_order:no, status:"pending" });
+          no++;
+        }));
+        if(rows.length) await sb.from("matches").insert(rows);
+      }
     }
 
     if(plan.placements.length){
@@ -1657,7 +1762,7 @@ $("#saveResultBtn").addEventListener("click", async ()=>{
   const need=currentEvent.win_sets||3;
   const done=t.hs>=need||t.as>=need;
   const patch={ sets: sets.length?sets:null, home_score:t.hs, away_score:t.as, status: done?"done":"pending" };
-  if(m && m.phase==="placement"){ patch.home_reg_id=m.home_reg_id||null; patch.away_reg_id=m.away_reg_id||null; }
+  if(m && (m.phase==="placement"||m.phase==="final")){ patch.home_reg_id=m.home_reg_id||null; patch.away_reg_id=m.away_reg_id||null; }
   const {error}=await sb.from("matches").update(patch).eq("id",resultMid);
   if(error){ toast(error.message,true); return; }
   $("#resultModal").classList.add("hidden");
