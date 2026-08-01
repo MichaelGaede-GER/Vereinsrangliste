@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Anmeldung — Vereinsrangliste Maintal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F5F6F4; --surface:#FFFFFF; --ink:#16211C; --muted:#5E6B64;
+    --border:#E3E6E1; --border-strong:#CDD2CB;
+    --accent:#005CC8; --accent-hover:#0049A1; --accent-soft:#E7F0FB;
+    --danger:#C4362F; --danger-soft:#FBEAE9; --ok:#2E7D4F; --ok-soft:#E8F3EC;
+    --shadow:0 1px 2px rgba(20,33,28,.06),0 10px 30px rgba(20,33,28,.07);
+    --f-display:"Space Grotesk",system-ui,sans-serif;
+    --f-body:"Inter",system-ui,sans-serif;
+    --f-mono:"JetBrains Mono",ui-monospace,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);
+    font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  h1,h2,h3{font-family:var(--f-display);margin:0;letter-spacing:-.01em}
+  .mono{font-family:var(--f-mono)}
+  .hidden{display:none !important}
+  .wrap{max-width:520px;margin:0 auto;padding:32px 18px 60px}
+
+  .brand{display:flex;align-items:center;gap:11px;margin-bottom:26px}
+  .brand-mark{width:38px;height:38px;border-radius:10px;background:var(--ink);color:#fff;
+    display:grid;place-items:center;font-family:var(--f-display);font-weight:700;font-size:20px}
+  .brand-mark span{color:#B7E400}
+  .brand .t h1{font-size:16px}
+  .brand .t div{font-size:12px;color:var(--muted)}
+
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;
+    box-shadow:var(--shadow);padding:24px;margin-bottom:18px}
+  .event-name{font-size:23px;margin-bottom:14px}
+  .meta{display:flex;flex-direction:column;gap:9px;margin-bottom:4px}
+  .meta .m{display:flex;gap:11px;align-items:center;font-size:14px}
+  .meta .m svg{color:var(--muted);flex-shrink:0}
+  .meta .m .lab{color:var(--muted);width:96px;flex-shrink:0}
+  .spots{margin-top:16px;padding-top:16px;border-top:1px solid var(--border);
+    display:flex;align-items:center;justify-content:space-between}
+  .spots .big{font-family:var(--f-mono);font-size:15px;font-weight:600}
+  .pill{font-size:12.5px;font-weight:600;padding:4px 11px;border-radius:20px}
+  .pill.open{background:var(--ok-soft);color:var(--ok)}
+  .pill.closed{background:var(--danger-soft);color:var(--danger)}
+
+  label.lbl{display:block;font-size:13px;font-weight:500;color:var(--muted);margin:0 0 5px}
+  .field{display:block;width:100%;padding:11px 12px;border:1px solid var(--border-strong);
+    border-radius:9px;background:var(--surface);color:var(--ink);transition:.12s;font-family:inherit;font-size:15px}
+  .field:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .row{display:flex;gap:12px}.row>*{flex:1;min-width:0}
+  .gap{margin-top:14px}
+
+  .seg{display:flex;gap:6px;background:var(--bg);padding:5px;border-radius:11px;margin-bottom:20px}
+  .seg button{flex:1;border:none;background:none;font-family:inherit;font-size:14px;font-weight:500;
+    color:var(--muted);padding:9px;border-radius:8px;cursor:pointer;transition:.12s}
+  .seg button.on{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;width:100%;
+    border:none;background:var(--accent);color:#fff;padding:13px;border-radius:10px;
+    font-family:inherit;font-weight:600;font-size:15px;cursor:pointer;transition:.12s}
+  .btn:hover{background:var(--accent-hover)}
+  .btn[disabled]{opacity:.5;cursor:not-allowed}
+
+  /* Spieler-Picker */
+  .picker-results{border:1px solid var(--border);border-radius:9px;margin-top:8px;
+    max-height:230px;overflow:auto}
+  .pick{display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer;
+    border-bottom:1px solid var(--border)}
+  .pick:last-child{border-bottom:none}
+  .pick:hover{background:var(--bg)}
+  .pick.sel{background:var(--accent-soft)}
+  .pick .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+  .pick .pn{font-family:var(--f-mono);font-size:12px;color:var(--muted);margin-left:auto}
+  .pick-none{padding:14px;color:var(--muted);font-size:14px;text-align:center}
+
+  .msg{font-size:14px;padding:11px 13px;border-radius:9px;margin-top:14px}
+  .msg.err{background:var(--danger-soft);color:var(--danger)}
+
+  .success{text-align:center;padding:8px 4px}
+  .success .check{width:60px;height:60px;border-radius:50%;background:var(--ok-soft);
+    display:grid;place-items:center;margin:0 auto 18px}
+  .success h2{font-size:22px;margin-bottom:8px}
+  .success p{color:var(--muted);margin:0 0 22px}
+
+  .ev-list a{display:flex;align-items:center;justify-content:space-between;gap:12px;
+    text-decoration:none;color:inherit;padding:16px 18px;border:1px solid var(--border);
+    border-radius:12px;background:var(--surface);box-shadow:var(--shadow);margin-bottom:12px;transition:.12s}
+  .ev-list a:hover{border-color:var(--ink)}
+  .ev-list .en{font-family:var(--f-display);font-weight:600;font-size:16px}
+  .ev-list .ed{font-size:13px;color:var(--muted);margin-top:2px}
+  .center-note{text-align:center;color:var(--muted);padding:50px 20px}
+
+  .foot{text-align:center;font-size:12px;color:var(--muted);margin-top:24px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="brand">
+    <div class="brand-mark">V<span>R</span></div>
+    <div class="t"><h1>Vereinsrangliste Maintal</h1><div>Anmeldung</div></div>
+  </div>
+
+  <div id="loading" class="center-note">Lädt …</div>
+
+  <!-- Event-Auswahl (wenn kein bestimmtes Event verlinkt ist) -->
+  <div id="eventList" class="hidden">
+    <h2 style="font-size:20px;margin-bottom:16px">Aktuelle Ranglisten</h2>
+    <div class="ev-list" id="eventListBody"></div>
+  </div>
+
+  <!-- Einzelnes Event + Formular -->
+  <div id="eventView" class="hidden">
+    <div class="card">
+      <h2 class="event-name" id="evName"></h2>
+      <div class="meta" id="evMeta"></div>
+      <div class="spots">
+        <span class="big" id="evSpots"></span>
+        <span id="evPill"></span>
+      </div>
+    </div>
+
+    <div class="card" id="formCard">
+      <h3 style="font-size:17px;margin-bottom:16px">Zur Rangliste anmelden</h3>
+      <div class="seg">
+        <button id="segMember" class="on">Ich bin Mitglied</button>
+        <button id="segGuest">Neu / Gast</button>
+      </div>
+
+      <!-- Mitglied: Picker -->
+      <div id="memberMode">
+        <label class="lbl">Namen suchen</label>
+        <input id="pickerSearch" class="field" placeholder="Nachname oder Spieler-Nr. …" autocomplete="off">
+        <div class="picker-results hidden" id="pickerResults"></div>
+      </div>
+
+      <!-- Gast: Formular -->
+      <div id="guestMode" class="hidden">
+        <div class="row">
+          <div><label class="lbl">Vorname *</label><input id="gFirst" class="field"></div>
+          <div><label class="lbl">Nachname *</label><input id="gLast" class="field"></div>
+        </div>
+        <div class="gap"><label class="lbl">E-Mail</label><input id="gEmail" class="field" type="email"></div>
+        <div class="gap"><label class="lbl">Telefon</label><input id="gPhone" class="field"></div>
+      </div>
+
+      <div id="formMsg" class="msg err hidden"></div>
+      <button class="btn gap" id="submitBtn" style="margin-top:20px">Anmeldung absenden</button>
+    </div>
+
+    <!-- Erfolg -->
+    <div class="card hidden" id="successCard">
+      <div class="success">
+        <div class="check">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#2E7D4F" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg>
+        </div>
+        <h2>Anmeldung eingegangen!</h2>
+        <p id="successText">Du bist für die Rangliste angemeldet.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot">Vereinsrangliste Maintal</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script>
+const $ = s => document.querySelector(s);
+const cfg = window.SUPABASE_CONFIG || {};
+const sb = supabase.createClient(cfg.url, cfg.anonKey);
+
+const params = new URLSearchParams(location.search);
+const eventId = params.get("event");
+
+let EVENT = null;
+let mode = "member";           // 'member' | 'guest'
+let selectedPlayer = null;
+let PLAYERS = [];
+
+init();
+
+async function init(){
+  if(eventId){ await loadEvent(eventId); }
+  else { await loadEventList(); }
+}
+
+// ---- Event-Liste (kein bestimmtes Event verlinkt) ----
+async function loadEventList(){
+  const { data, error } = await sb.from("public_event_stats")
+    .select("*").eq("is_registration_open", true).order("event_date");
+  $("#loading").classList.add("hidden");
+  const open = (data||[]).filter(e => !e.registration_deadline || new Date(e.registration_deadline) > new Date());
+  if(error || !open.length){
+    $("#eventList").classList.remove("hidden");
+    $("#eventListBody").innerHTML = '<div class="center-note">Zurzeit sind keine Anmeldungen offen.</div>';
+    return;
+  }
+  $("#eventList").classList.remove("hidden");
+  $("#eventListBody").innerHTML = open.map(e=>`
+    <a href="?event=${e.id}">
+      <div>
+        <div class="en">${esc(e.name)}</div>
+        <div class="ed">${fmtDate(e.event_date)}${e.location?" · "+esc(e.location):""}</div>
+      </div>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5E6B64" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+    </a>`).join("");
+}
+
+// ---- Einzelnes Event ----
+async function loadEvent(id){
+  const { data, error } = await sb.from("public_event_stats").select("*").eq("id", id).maybeSingle();
+  $("#loading").classList.add("hidden");
+  if(error || !data){
+    $("#eventView").classList.remove("hidden");
+    $("#formCard").innerHTML = '<div class="center-note">Dieses Event wurde nicht gefunden.</div>';
+    $("#evName").textContent = "Nicht gefunden";
+    return;
+  }
+  EVENT = data;
+  renderEvent();
+  $("#eventView").classList.remove("hidden");
+}
+
+function registrationOpen(){
+  if(!EVENT.is_registration_open) return false;
+  if(EVENT.registration_deadline && new Date(EVENT.registration_deadline) <= new Date()) return false;
+  if(EVENT.max_participants && EVENT.registered_count >= EVENT.max_participants) return false;
+  return true;
+}
+
+function renderEvent(){
+  $("#evName").textContent = EVENT.name;
+  const m = [];
+  if(EVENT.event_date) m.push(metaRow("calendar", "Termin",
+     fmtDate(EVENT.event_date) + (EVENT.start_time ? ", "+EVENT.start_time.slice(0,5)+" Uhr" : "")));
+  if(EVENT.location) m.push(metaRow("pin", "Ort", esc(EVENT.location)));
+  if(EVENT.registration_deadline) m.push(metaRow("clock", "Meldeschluss", fmtDateTime(EVENT.registration_deadline)));
+  $("#evMeta").innerHTML = m.join("");
+
+  const cnt = EVENT.registered_count || 0;
+  $("#evSpots").textContent = EVENT.max_participants
+    ? `${cnt} / ${EVENT.max_participants} angemeldet`
+    : `${cnt} angemeldet`;
+
+  const open = registrationOpen();
+  $("#evPill").innerHTML = open
+    ? '<span class="pill open">Anmeldung offen</span>'
+    : '<span class="pill closed">Anmeldung geschlossen</span>';
+
+  if(!open){
+    let why = "Die Anmeldung ist derzeit geschlossen.";
+    if(EVENT.max_participants && cnt >= EVENT.max_participants) why = "Das Event ist ausgebucht.";
+    else if(EVENT.registration_deadline && new Date(EVENT.registration_deadline) <= new Date())
+      why = "Der Meldeschluss ist vorbei.";
+    $("#formCard").innerHTML = `<div class="center-note">${why}</div>`;
+  }
+}
+
+function metaRow(icon, lab, val){
+  const icons = {
+    calendar:'<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+    pin:'<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>',
+    clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'
+  };
+  return `<div class="m"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">${icons[icon]}</svg><span class="lab">${lab}</span><span>${val}</span></div>`;
+}
+
+// ---- Modus umschalten ----
+$("#segMember").addEventListener("click", ()=> setMode("member"));
+$("#segGuest").addEventListener("click", ()=> setMode("guest"));
+function setMode(m){
+  mode = m;
+  $("#segMember").classList.toggle("on", m==="member");
+  $("#segGuest").classList.toggle("on", m==="guest");
+  $("#memberMode").classList.toggle("hidden", m!=="member");
+  $("#guestMode").classList.toggle("hidden", m!=="guest");
+  hideMsg();
+}
+
+// ---- Spieler-Picker ----
+let pickerTimer;
+$("#pickerSearch").addEventListener("input", ()=>{
+  selectedPlayer = null;
+  clearTimeout(pickerTimer);
+  pickerTimer = setTimeout(runPicker, 200);
+});
+async function runPicker(){
+  const q = $("#pickerSearch").value.trim();
+  const box = $("#pickerResults");
+  if(q.length < 2){ box.classList.add("hidden"); return; }
+  const { data } = await sb.from("public_players")
+    .select("*")
+    .or(`last_name.ilike.%${q}%,first_name.ilike.%${q}%,player_number.ilike.%${q}%`)
+    .order("last_name").limit(15);
+  PLAYERS = data || [];
+  if(!PLAYERS.length){
+    box.innerHTML = '<div class="pick-none">Kein Mitglied gefunden. Nutze „Neu / Gast".</div>';
+  }else{
+    box.innerHTML = PLAYERS.map(p=>`
+      <div class="pick" data-id="${p.id}">
+        <span class="dot" style="background:${p.status_color||'#CDD2CB'}"></span>
+        <span>${esc(p.last_name)}, ${esc(p.first_name)}</span>
+        <span class="pn">${esc(p.player_number||"")}</span>
+      </div>`).join("");
+    box.querySelectorAll(".pick").forEach(el=>
+      el.addEventListener("click", ()=> choosePlayer(el.dataset.id)));
+  }
+  box.classList.remove("hidden");
+}
+function choosePlayer(id){
+  selectedPlayer = PLAYERS.find(p=>p.id===id);
+  $("#pickerSearch").value = `${selectedPlayer.last_name}, ${selectedPlayer.first_name}`;
+  document.querySelectorAll(".pick").forEach(el=>
+    el.classList.toggle("sel", el.dataset.id===id));
+  $("#pickerResults").classList.add("hidden");
+  hideMsg();
+}
+
+// ---- Absenden ----
+$("#submitBtn").addEventListener("click", submit);
+async function submit(){
+  hideMsg();
+  if(!registrationOpen()){ showMsg("Die Anmeldung ist nicht mehr möglich."); return; }
+
+  let rec = { event_id: EVENT.id, source: "self", status: "confirmed" };
+  if(mode==="member"){
+    if(!selectedPlayer){ showMsg("Bitte wähle deinen Namen aus der Liste."); return; }
+    rec.player_id = selectedPlayer.id;
+  }else{
+    const f = $("#gFirst").value.trim(), l = $("#gLast").value.trim();
+    if(!f || !l){ showMsg("Bitte Vor- und Nachname angeben."); return; }
+    rec.guest_first_name = f;
+    rec.guest_last_name  = l;
+    rec.guest_email = $("#gEmail").value.trim() || null;
+    rec.guest_phone = $("#gPhone").value.trim() || null;
+  }
+
+  const btn = $("#submitBtn"); btn.disabled = true; btn.textContent = "Senden …";
+  const { error } = await sb.from("registrations").insert(rec);
+  btn.disabled = false; btn.textContent = "Anmeldung absenden";
+
+  if(error){
+    if(String(error.message).includes("duplicate")) showMsg("Für diesen Namen liegt bereits eine Anmeldung vor.");
+    else if(String(error.code)==="42501" || /policy/i.test(error.message)) showMsg("Die Anmeldung ist geschlossen oder das Event ist voll.");
+    else showMsg(error.message);
+    return;
+  }
+
+  const who = mode==="member" ? `${selectedPlayer.first_name} ${selectedPlayer.last_name}` : $("#gFirst").value.trim();
+  $("#successText").textContent = `${who}, du bist für „${EVENT.name}" angemeldet.`;
+  $("#formCard").classList.add("hidden");
+  $("#successCard").classList.remove("hidden");
+}
+
+// ---- Helpers ----
+function showMsg(t){ const m=$("#formMsg"); m.textContent=t; m.classList.remove("hidden"); }
+function hideMsg(){ $("#formMsg").classList.add("hidden"); }
+function esc(s){ return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function fmtDate(d){ if(!d) return ""; const [y,m,day]=d.split("-"); return `${day}.${m}.${y}`; }
+function fmtDateTime(iso){ const dt=new Date(iso);
+  return dt.toLocaleDateString("de-DE")+", "+dt.toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"})+" Uhr"; }
+</script>
+</body>
+</html>
