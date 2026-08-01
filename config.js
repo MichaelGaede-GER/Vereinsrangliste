@@ -11,6 +11,6 @@
 // =====================================================================
 
 window.SUPABASE_CONFIG = {
-  url:     "https://akqgioywwlbtzmkotsun.supabase.co/rest/v1/",
+  url:     "https://akqgioywwlbtzmkotsun.supabase.co/",
   anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFrcWdpb3l3d2xidHpta290c3VuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU1OTkzNzUsImV4cCI6MjEwMTE3NTM3NX0.bWyfuS9ukYGkENOk7z6SeZ0Kr1IJ8LT2yRlKORraS-k"
 };
