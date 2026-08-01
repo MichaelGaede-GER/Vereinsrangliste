@@ -191,6 +191,18 @@
   #toast.show{transform:translateX(-50%) translateY(0)}
   #toast.err{background:var(--danger)}
 
+  .subtabs{display:flex;gap:2px;border-bottom:1px solid var(--border);margin-bottom:18px}
+  .subtabs button{padding:9px 14px;border:none;background:none;color:var(--muted);font-weight:500;
+    font-size:14px;border-bottom:2px solid transparent;margin-bottom:-1px;cursor:pointer}
+  .subtabs button.on{color:var(--ink);border-bottom-color:var(--accent)}
+  .dropzone{border:2px dashed var(--border-strong);border-radius:10px;padding:26px;text-align:center;
+    color:var(--muted);cursor:pointer;transition:.12s}
+  .dropzone:hover,.dropzone.drag{border-color:var(--accent);background:var(--accent-soft)}
+  .msg-box{font-size:14px;padding:11px 13px;border-radius:9px;margin-top:14px}
+  .msg-box.ok{background:var(--ok-soft);color:var(--ok)}
+  .msg-box.err{background:var(--danger-soft);color:var(--danger)}
+  .seed-num{font-family:var(--f-mono);font-weight:600;color:var(--ink)}
+
   @media(max-width:640px){
     .actions-cell{text-align:left}
     thead th.hide-sm,tbody td.hide-sm{display:none}
@@ -283,6 +295,12 @@
           <button class="btn btn-sm" id="copyLinkBtn">Kopieren</button></div>
       </div>
 
+      <div class="subtabs">
+        <button id="subtabReg" class="on">Anmeldungen</button>
+        <button id="subtabSeed">Setzung</button>
+      </div>
+
+      <div id="subAnmeldungen">
       <div class="page-head" style="margin-bottom:14px">
         <div style="display:flex;align-items:center;gap:12px"><h2 style="font-size:18px">Anmeldungen</h2>
           <span class="count" id="regCount">0</span></div>
@@ -296,6 +314,32 @@
         <div id="regEmpty" class="empty hidden">
           <strong>Noch keine Anmeldungen</strong>
           Teile den Anmeldelink oder füge Spieler manuell hinzu.
+        </div>
+      </div>
+      </div><!-- /subAnmeldungen -->
+
+      <div id="subSetzung" class="hidden">
+        <div class="page-head" style="margin-bottom:14px">
+          <div style="display:flex;align-items:center;gap:12px"><h2 style="font-size:18px">Setzung</h2>
+            <span class="count" id="seedCount">0</span></div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-sm" id="importPdfBtn">Rangliste einlesen</button>
+            <button class="btn btn-primary btn-sm" id="saveSeedBtn">Setzung speichern</button>
+          </div>
+        </div>
+        <div class="card">
+          <table>
+            <thead><tr>
+              <th style="width:60px">Setz.</th><th>Name</th>
+              <th class="hide-sm">Status</th><th class="hide-sm" style="width:90px">PDF-Rang</th>
+              <th class="actions-cell">Reihenfolge</th>
+            </tr></thead>
+            <tbody id="seedBody"></tbody>
+          </table>
+          <div id="seedEmpty" class="empty hidden">
+            <strong>Noch keine Teilnehmer</strong>
+            Melde zuerst Spieler an, dann lies die Rangliste ein.
+          </div>
         </div>
       </div>
     </div>
@@ -353,6 +397,35 @@
       </div>
     </div>
   </main>
+</div>
+
+<!-- IMPORT RANGLISTE -->
+<div id="importModal" class="overlay hidden">
+  <div class="modal">
+    <div class="modal-head"><h3>Rangliste einlesen</h3><button class="x-close" data-close-import>×</button></div>
+    <div class="modal-body">
+      <div id="importStep1">
+        <p class="hint" style="margin-top:0;color:var(--muted);font-size:13px">
+          Lies die Rangliste per Datei ein (immer zuverlässig) oder direkt aus dem in den Einstellungen hinterlegten Link.</p>
+        <div id="dropZone" class="dropzone">
+          <strong style="color:var(--ink)">PDF hierher ziehen</strong> oder <span style="color:var(--accent)">auswählen</span>
+          <input type="file" id="pdfFile" accept="application/pdf" hidden>
+        </div>
+        <div style="text-align:center;color:var(--muted);font-size:13px;margin:14px 0">— oder —</div>
+        <button class="btn" id="loadLinkBtn" style="width:100%;justify-content:center">Aus hinterlegtem Link laden</button>
+        <div id="importMsg" class="msg-box hidden"></div>
+      </div>
+      <div id="importStep2" class="hidden">
+        <div id="matchSummary"></div>
+        <div id="matchDetail"></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <span style="flex:1"></span>
+      <button class="btn" data-close-import>Abbrechen</button>
+      <button class="btn btn-primary hidden" id="applySeedBtn">Setzung übernehmen</button>
+    </div>
+  </div>
 </div>
 
 <div id="toast"></div>
@@ -453,6 +526,7 @@
   </div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
 <script>
@@ -464,6 +538,10 @@ let sb = null;
 let STATUSES = [], PLAYERS = [], EVENTS = [];
 let currentEvent = null, currentRegs = [];
 let signupMode = false, convertRegId = null;
+let seedList = [], pendingProposal = null;
+
+if(window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc =
+  "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
 let toastTimer;
 function toast(msg, isErr){
@@ -760,6 +838,8 @@ async function openEvent(id){
   $("#copyLinkBtn").onclick=()=>{ navigator.clipboard.writeText(link).then(()=>toast("Link kopiert.")); };
 
   renderRegs();
+  initSeedList();
+  setSubtab("reg");
 }
 function renderRegs(){
   $("#regCount").textContent=currentRegs.length;
@@ -839,6 +919,191 @@ $("#saveRankingBtn").addEventListener("click", async ()=>{
   const {error}=await sb.from("app_settings").upsert({key:"ranking_pdf_url",value:url,updated_at:new Date().toISOString()});
   if(error){ toast(error.message,true); return; }
   renderRankingPreview(url); toast("Ranglisten-Link gespeichert.");
+});
+
+// ---------- Setzung ----------
+function setSubtab(which){
+  $("#subtabReg").classList.toggle("on", which==="reg");
+  $("#subtabSeed").classList.toggle("on", which==="seed");
+  $("#subAnmeldungen").classList.toggle("hidden", which!=="reg");
+  $("#subSetzung").classList.toggle("hidden", which!=="seed");
+}
+$("#subtabReg").addEventListener("click", ()=>setSubtab("reg"));
+$("#subtabSeed").addEventListener("click", ()=>setSubtab("seed"));
+
+function regName(r){
+  if(r.player_id){ const p=PLAYERS.find(x=>x.id===r.player_id); return p?`${p.first_name} ${p.last_name}`:""; }
+  return `${r.guest_first_name||""} ${r.guest_last_name||""}`;
+}
+function norm(s){ return (s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+  .toLowerCase().replace(/[^a-z\s]/g," ").split(/\s+/).filter(Boolean); }
+
+// Baut die Setzungsliste aus den aktuellen Anmeldungen (gespeicherte Reihenfolge zuerst)
+function initSeedList(){
+  seedList = currentRegs.map(r=>({ reg:r, rank:r.seed_rank ?? null, name:regName(r) }));
+  seedList.sort((a,b)=>{
+    const sa=a.reg.seed, sb2=b.reg.seed;
+    if(sa!=null && sb2!=null) return sa-sb2;
+    if(sa!=null) return -1; if(sb2!=null) return 1;
+    if(a.rank!=null && b.rank!=null) return a.rank-b.rank;
+    if(a.rank!=null) return -1; if(b.rank!=null) return 1;
+    return a.name.localeCompare(b.name,"de");
+  });
+  renderSeeding();
+}
+
+function renderSeeding(){
+  $("#seedCount").textContent = seedList.length;
+  $("#seedEmpty").classList.toggle("hidden", seedList.length>0);
+  $("#seedBody").innerHTML = seedList.map((it,i)=>{
+    const r=it.reg; let name, badge;
+    if(r.player_id){
+      const p=PLAYERS.find(x=>x.id===r.player_id);
+      name = p?`${esc(p.last_name)}, ${esc(p.first_name)}`:"(Spieler gelöscht)";
+      const s=p?statusById(p.membership_status_id):null;
+      badge = s?`<span class="badge" style="background:${hexA(s.color,.12)};color:${s.color};border-color:${hexA(s.color,.25)}"><span class="dot" style="background:${s.color}"></span>${esc(s.name)}</span>`:`<span class="badge off">—</span>`;
+    }else{
+      name=`${esc(r.guest_last_name||"")}, ${esc(r.guest_first_name||"")}`;
+      badge=`<span class="badge guest">Gast</span>`;
+    }
+    return `<tr>
+      <td><span class="seed-num">${i+1}</span></td>
+      <td class="pname">${name}</td>
+      <td class="hide-sm">${badge}</td>
+      <td class="hide-sm num">${it.rank??"—"}</td>
+      <td class="actions-cell">
+        <button class="btn btn-ghost btn-sm" data-up="${i}" ${i===0?"disabled":""}>↑</button>
+        <button class="btn btn-ghost btn-sm" data-down="${i}" ${i===seedList.length-1?"disabled":""}>↓</button>
+      </td></tr>`;
+  }).join("");
+  $("#seedBody").querySelectorAll("[data-up]").forEach(b=>b.addEventListener("click",()=>moveSeed(+b.dataset.up,-1)));
+  $("#seedBody").querySelectorAll("[data-down]").forEach(b=>b.addEventListener("click",()=>moveSeed(+b.dataset.down,1)));
+}
+function moveSeed(i,dir){
+  const j=i+dir; if(j<0||j>=seedList.length) return;
+  [seedList[i],seedList[j]]=[seedList[j],seedList[i]]; renderSeeding();
+}
+
+$("#saveSeedBtn").addEventListener("click", async ()=>{
+  if(!seedList.length){ toast("Keine Teilnehmer zum Setzen.",true); return; }
+  const btn=$("#saveSeedBtn"); btn.disabled=true;
+  const results=await Promise.all(seedList.map((it,i)=>
+    sb.from("registrations").update({ seed:i+1, seed_rank: it.rank ?? null }).eq("id", it.reg.id)));
+  btn.disabled=false;
+  const bad=results.find(r=>r.error);
+  if(bad){ toast(bad.error.message,true); return; }
+  seedList.forEach((it,i)=>{ it.reg.seed=i+1; it.reg.seed_rank=it.rank??null; });
+  toast("Setzung gespeichert.");
+});
+
+// ---- Import-Modal ----
+$("#importPdfBtn").addEventListener("click", ()=>{
+  if(!currentRegs.length){ toast("Es sind noch keine Spieler angemeldet.",true); return; }
+  $("#importStep1").classList.remove("hidden");
+  $("#importStep2").classList.add("hidden");
+  $("#applySeedBtn").classList.add("hidden");
+  $("#importMsg").className="msg-box hidden";
+  $("#pdfFile").value="";
+  $("#importModal").classList.remove("hidden");
+});
+document.querySelectorAll("[data-close-import]").forEach(b=>b.addEventListener("click",()=>$("#importModal").classList.add("hidden")));
+function importErr(t){ const m=$("#importMsg"); m.textContent=t; m.className="msg-box err"; }
+
+const dz=$("#dropZone");
+dz.addEventListener("click", ()=>$("#pdfFile").click());
+dz.addEventListener("dragover", e=>{ e.preventDefault(); dz.classList.add("drag"); });
+dz.addEventListener("dragleave", ()=>dz.classList.remove("drag"));
+dz.addEventListener("drop", e=>{ e.preventDefault(); dz.classList.remove("drag");
+  const f=e.dataTransfer.files[0]; if(f) handleFile(f); });
+$("#pdfFile").addEventListener("change", e=>{ const f=e.target.files[0]; if(f) handleFile(f); });
+
+async function handleFile(file){
+  $("#importMsg").className="msg-box hidden";
+  try{
+    const buf=await file.arrayBuffer();
+    const entries=await parsePdf(buf);
+    onParsed(entries);
+  }catch(e){ importErr("PDF konnte nicht gelesen werden: "+e.message); }
+}
+$("#loadLinkBtn").addEventListener("click", async ()=>{
+  $("#importMsg").className="msg-box"; $("#importMsg").textContent="Lade Rangliste …";
+  const {data}=await sb.from("app_settings").select("value").eq("key","ranking_pdf_url").maybeSingle();
+  const url=data?.value;
+  if(!url){ importErr("Kein Link hinterlegt. Trage ihn in den Einstellungen ein — oder nutze die Datei-Option."); return; }
+  try{
+    const proxied="https://api.allorigins.win/raw?url="+encodeURIComponent(url);
+    const res=await fetch(proxied);
+    if(!res.ok) throw new Error("HTTP "+res.status);
+    const buf=await res.arrayBuffer();
+    const entries=await parsePdf(buf);
+    onParsed(entries);
+  }catch(e){
+    importErr("Der Link konnte nicht geladen werden ("+e.message+"). Bitte lade die PDF stattdessen als Datei hoch.");
+  }
+});
+
+// PDF -> [{rank, name}]
+async function parsePdf(arrayBuffer){
+  const pdf=await pdfjsLib.getDocument({data:arrayBuffer}).promise;
+  const out=[];
+  const RE=/^(\d+)\s+\d+\s+([A-Za-zÀ-ÖØ-öø-ÿ][A-Za-zÀ-ÖØ-öø-ÿ.\-' ]*?)\s+\d/;
+  for(let p=1;p<=pdf.numPages;p++){
+    const page=await pdf.getPage(p);
+    const tc=await page.getTextContent();
+    const items=tc.items.map(it=>({x:it.transform[4],y:it.transform[5],s:it.str}))
+      .filter(i=>i.s && i.s.trim()!=="");
+    items.sort((a,b)=> b.y-a.y || a.x-b.x);
+    let cur=null; const lines=[];
+    for(const it of items){
+      if(!cur || Math.abs(it.y-cur.y)>4){ cur={y:it.y,items:[it]}; lines.push(cur); }
+      else cur.items.push(it);
+    }
+    for(const l of lines){
+      l.items.sort((a,b)=>a.x-b.x);
+      const text=l.items.map(i=>i.s).join(" ").replace(/\s+/g," ").trim();
+      const m=text.match(RE);
+      if(m) out.push({ rank:parseInt(m[1]), name:m[2].trim() });
+    }
+  }
+  return out;
+}
+
+function onParsed(entries){
+  if(!entries.length){ importErr("Keine Ranglisten-Einträge erkannt. Ist es die richtige PDF?"); return; }
+  entries.forEach(e=> e.tokens=norm(e.name));
+  const used=new Set(), matched=[], unmatched=[];
+  currentRegs.forEach(r=>{
+    const rt=norm(regName(r));
+    let idx=-1;
+    entries.forEach((e,i)=>{ if(used.has(i)) return;
+      if(rt.length && rt.every(t=>e.tokens.includes(t)) && idx<0) idx=i; });
+    if(idx>=0){ used.add(idx); matched.push({reg:r, rank:entries[idx].rank, name:entries[idx].name}); }
+    else unmatched.push({reg:r, rank:null, name:regName(r)});
+  });
+  matched.sort((a,b)=> a.rank-b.rank);
+  pendingProposal={matched,unmatched};
+
+  $("#importStep1").classList.add("hidden");
+  $("#importStep2").classList.remove("hidden");
+  $("#applySeedBtn").classList.remove("hidden");
+  $("#matchSummary").innerHTML=`<div class="msg-box ok">${matched.length} von ${currentRegs.length} Angemeldeten der Rangliste zugeordnet (${entries.length} Einträge im PDF).</div>`;
+  $("#matchDetail").innerHTML = unmatched.length
+    ? `<p class="hint" style="margin-top:16px;color:var(--muted);font-size:13px">Ohne Ranglisten-Eintrag — landen ans Ende der Setzung, dort manuell einsortieren:</p>`
+      + unmatched.map(u=>`<div style="padding:7px 0;border-bottom:1px solid var(--border)">${esc(u.name)}</div>`).join("")
+    : `<p class="hint" style="margin-top:16px;color:var(--ok);font-size:13px">Alle Angemeldeten konnten zugeordnet werden.</p>`;
+}
+
+$("#applySeedBtn").addEventListener("click", ()=>{
+  if(!pendingProposal) return;
+  const {matched,unmatched}=pendingProposal;
+  seedList=[
+    ...matched.map(m=>({reg:m.reg, rank:m.rank, name:m.name})),
+    ...unmatched.map(u=>({reg:u.reg, rank:null, name:u.name}))
+  ];
+  renderSeeding();
+  $("#importModal").classList.add("hidden");
+  setSubtab("seed");
+  toast("Setzung erstellt — jetzt noch mit dem Button sichern.");
 });
 
 // ---------- Helpers ----------
