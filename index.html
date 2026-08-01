@@ -498,6 +498,24 @@
   </div>
 </div>
 
+<!-- ERGEBNIS (Satz für Satz) -->
+<div id="resultModal" class="overlay hidden">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-head"><h3>Ergebnis eintragen</h3><button class="x-close" data-close-result>×</button></div>
+    <div class="modal-body">
+      <div id="resMatchup" style="display:flex;justify-content:space-between;align-items:center;gap:10px;font-weight:600;margin-bottom:18px"></div>
+      <div id="setRows"></div>
+      <div id="setTally" style="text-align:center;margin-top:16px;font-family:var(--f-body);font-weight:600"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-danger" id="clearResultBtn">Leeren</button>
+      <span style="flex:1"></span>
+      <button class="btn" data-close-result>Abbrechen</button>
+      <button class="btn btn-primary" id="saveResultBtn">Speichern</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <!-- PLAYER MODAL -->
@@ -573,6 +591,11 @@
         <div><label class="lbl">Meldeschluss</label><input id="eDeadline" class="field" type="datetime-local"></div>
         <div style="flex:0 0 150px"><label class="lbl">Max. Teilnehmer</label><input id="eMax" class="field mono" type="number" placeholder="z. B. 32"></div>
       </div>
+      <label class="lbl">Gewinnsätze</label>
+      <select id="eWinSets" class="field">
+        <option value="2">2 Gewinnsätze (Best of 3)</option>
+        <option value="3">3 Gewinnsätze (Best of 5)</option>
+      </select>
       <label class="lbl">Notiz (nur intern)</label><textarea id="eNotes" class="field" rows="2"></textarea>
       <label class="check"><input type="checkbox" id="eOpen" checked> Anmeldung ist geöffnet</label>
     </div>
@@ -849,6 +872,7 @@ function openEventModal(id){
   $("#eDate").value=e?.event_date||""; $("#eTime").value=e?.start_time?e.start_time.slice(0,5):"";
   $("#eLocation").value=e?.location||""; $("#eDeadline").value=e?.registration_deadline?toLocalInput(e.registration_deadline):"";
   $("#eMax").value=e?.max_participants||""; $("#eNotes").value=e?.notes||"";
+  $("#eWinSets").value=String(e?.win_sets||3);
   $("#eOpen").checked=e?e.is_registration_open:true;
   $("#deleteEventBtn").classList.toggle("hidden", !id);
   $("#eventModal").classList.remove("hidden"); setTimeout(()=>$("#eName").focus(),40);
@@ -862,7 +886,8 @@ $("#saveEventBtn").addEventListener("click", async ()=>{
     location:$("#eLocation").value.trim()||null,
     registration_deadline:$("#eDeadline").value?new Date($("#eDeadline").value).toISOString():null,
     max_participants:$("#eMax").value?parseInt($("#eMax").value):null,
-    notes:$("#eNotes").value.trim()||null, is_registration_open:$("#eOpen").checked };
+    notes:$("#eNotes").value.trim()||null, is_registration_open:$("#eOpen").checked,
+    win_sets:parseInt($("#eWinSets").value)||3 };
   const id=$("#eId").value;
   const res = id ? await sb.from("events").update(rec).eq("id",id).select().maybeSingle()
                  : await sb.from("events").insert(rec).select().maybeSingle();
@@ -1215,6 +1240,7 @@ async function loadTournament(){
 
 function renderGroups(){
   $("#groupsEmpty").classList.toggle("hidden", GROUPS.length>0);
+  const need=currentEvent.win_sets||3;
   $("#groupsContainer").innerHTML = GROUPS.map(g=>{
     const matches=MATCHES.filter(m=>m.group_id===g.id).sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
     const rows=matches.map(m=>`
@@ -1223,9 +1249,7 @@ function renderGroups(){
         <td><input class="mini court" data-mid="${m.id}" data-f="court" value="${esc(m.court||"")}" placeholder="Court"></td>
         <td><input class="mini time" type="time" data-mid="${m.id}" data-f="time" value="${m.scheduled_time?m.scheduled_time.slice(0,5):""}"></td>
         <td class="who" style="text-align:right">${regShort(m.home_reg_id)}</td>
-        <td><input class="score" type="number" min="0" data-mid="${m.id}" data-f="hs" value="${m.home_score??""}"></td>
-        <td class="vs">:</td>
-        <td><input class="score" type="number" min="0" data-mid="${m.id}" data-f="as" value="${m.away_score??""}"></td>
+        <td style="text-align:center;white-space:nowrap">${matchSummary(m)}</td>
         <td class="who">${regShort(m.away_reg_id)}</td>
       </tr>`).join("");
 
@@ -1237,66 +1261,79 @@ function renderGroups(){
         <td class="st">${s.played}</td>
         <td class="st">${s.wins}</td>
         <td class="st">${s.losses}</td>
-        <td class="st">${s.diff>0?"+":""}${s.diff}</td>
+        <td class="st mono">${s.setsWon}:${s.setsLost}</td>
+        <td class="st mono">${s.ballsWon}:${s.ballsLost}</td>
       </tr>`).join("");
 
     return `<div class="group-block" data-gid="${g.id}">
       <div class="gb-head">
-        <h3>${esc(g.name)}<span class="gb-sub">${matches.length} Spiele · jeder gegen jeden</span></h3>
+        <h3>${esc(g.name)}<span class="gb-sub">${matches.length} Spiele · jeder gegen jeden · ${need} Gewinnsätze</span></h3>
         <button class="btn btn-danger btn-sm" data-delgroup="${g.id}">Gruppe löschen</button>
       </div>
       <div class="gb-section-title">Spielplan</div>
       <div style="overflow-x:auto"><table class="matches">
-        <thead><tr><th>Nr</th><th>Court</th><th>Zeit</th><th style="text-align:right">Heim</th><th></th><th></th><th></th><th>Gast</th></tr></thead>
+        <thead><tr><th>Nr</th><th>Court</th><th>Zeit</th><th style="text-align:right">Heim</th><th style="text-align:center">Ergebnis</th><th>Gast</th></tr></thead>
         <tbody>${rows}</tbody>
       </table></div>
       <div class="gb-section-title">Tabelle</div>
       <div style="overflow-x:auto"><table class="standings">
-        <thead><tr><th>Pl.</th><th>Spieler</th><th class="st">Sp</th><th class="st">S</th><th class="st">N</th><th class="st">Diff</th></tr></thead>
+        <thead><tr><th>Pl.</th><th>Spieler</th><th class="st">Sp</th><th class="st">S</th><th class="st">N</th><th class="st">Sätze</th><th class="st">Bälle</th></tr></thead>
         <tbody>${srows}</tbody>
       </table></div>
-      <div class="gb-foot">
-        <button class="btn btn-primary btn-sm" data-savegroup="${g.id}">Court, Zeit & Ergebnisse speichern</button>
+      <div class="gb-foot" style="justify-content:flex-start">
+        <span class="hint" style="margin:0;color:var(--muted);font-size:12px">Court &amp; Zeit werden beim Verlassen des Feldes automatisch gespeichert. Ergebnis über „Ergebnis" eintragen.</span>
       </div>
     </div>`;
   }).join("");
 
   $("#groupsContainer").querySelectorAll("[data-delgroup]").forEach(b=>b.addEventListener("click",()=>deleteGroup(b.dataset.delgroup)));
-  $("#groupsContainer").querySelectorAll("[data-savegroup]").forEach(b=>b.addEventListener("click",()=>saveGroup(b.dataset.savegroup)));
-  // Live-Tabelle beim Tippen der Ergebnisse
-  $("#groupsContainer").querySelectorAll("input.score").forEach(inp=>inp.addEventListener("input",()=>recalcLive(inp)));
+  $("#groupsContainer").querySelectorAll("[data-res]").forEach(b=>b.addEventListener("click",()=>openResultModal(b.dataset.res)));
+  $("#groupsContainer").querySelectorAll("input.court,input.time").forEach(inp=>inp.addEventListener("change",()=>autoSaveField(inp)));
 }
 
-// Bei Eingabe eines Ergebnisses lokal übernehmen und Tabelle sofort aktualisieren
-function recalcLive(inp){
+// Kurz-Zusammenfassung eines Spiels: Satzstand + einzelne Sätze, klickbar
+function matchSummary(m){
+  const sets=Array.isArray(m.sets)?m.sets:[];
+  const played=sets.filter(s=>s&&s.length===2&&s[0]!=null&&s[1]!=null);
+  if(!played.length) return `<button class="btn btn-sm" data-res="${m.id}">Ergebnis</button>`;
+  let hs=0,as=0; const parts=played.map(s=>{ if(s[0]>s[1])hs++; else if(s[1]>s[0])as++; return `${s[0]}:${s[1]}`; });
+  return `<button class="btn btn-ghost btn-sm" data-res="${m.id}">
+    <span class="mono" style="font-weight:600;color:var(--ink)">${hs}:${as}</span>
+    <span style="color:var(--muted);font-size:11px;margin-left:6px">${parts.join(" ")}</span></button>`;
+}
+
+// Court/Zeit einzeln speichern
+async function autoSaveField(inp){
   const m=MATCHES.find(x=>x.id===inp.dataset.mid); if(!m) return;
-  const v=inp.value===""?null:parseInt(inp.value);
-  if(inp.dataset.f==="hs") m.home_score=v; else m.away_score=v;
-  m.status=(m.home_score!=null && m.away_score!=null)?"done":"pending";
-  // nur die Tabelle dieser Gruppe neu zeichnen wäre aufwändig – Gesamt-Rerender ist ok
-  const active=document.activeElement;
-  const gid=m.group_id;
-  const block=$("#groupsContainer").querySelector(`[data-gid="${gid}"] table.standings tbody`);
-  if(block){
-    const st=computeStandings(gid);
-    block.innerHTML=st.map((s,i)=>`<tr class="${i===0?"top":""}"><td class="pos">${i+1}</td><td>${regShort(s.regId)}</td><td class="st">${s.played}</td><td class="st">${s.wins}</td><td class="st">${s.losses}</td><td class="st">${s.diff>0?"+":""}${s.diff}</td></tr>`).join("");
-  }
-  if(active) active.focus();
+  const patch={};
+  if(inp.dataset.f==="court"){ patch.court=inp.value.trim()||null; m.court=patch.court; }
+  else { patch.scheduled_time=inp.value||null; m.scheduled_time=patch.scheduled_time; }
+  const {error}=await sb.from("matches").update(patch).eq("id",m.id);
+  if(error) toast(error.message,true);
 }
 
 function computeStandings(groupId){
   const members=GPLAYERS.filter(gp=>gp.group_id===groupId).sort((a,b)=>a.position-b.position);
   const stat={};
-  members.forEach(gp=> stat[gp.registration_id]={regId:gp.registration_id, pos:gp.position, played:0,wins:0,losses:0,sf:0,sa:0,diff:0});
-  MATCHES.filter(m=>m.group_id===groupId && m.home_score!=null && m.away_score!=null).forEach(m=>{
+  members.forEach(gp=> stat[gp.registration_id]={regId:gp.registration_id, pos:gp.position,
+    played:0,wins:0,losses:0,setsWon:0,setsLost:0,ballsWon:0,ballsLost:0});
+  MATCHES.filter(m=>m.group_id===groupId).forEach(m=>{
+    const sets=Array.isArray(m.sets)?m.sets:[];
+    const played=sets.filter(s=>s&&s.length===2&&s[0]!=null&&s[1]!=null);
+    if(!played.length) return;
     const h=stat[m.home_reg_id], a=stat[m.away_reg_id]; if(!h||!a) return;
-    h.played++; a.played++; h.sf+=m.home_score; h.sa+=m.away_score; a.sf+=m.away_score; a.sa+=m.home_score;
-    if(m.home_score>m.away_score){ h.wins++; a.losses++; }
-    else if(m.away_score>m.home_score){ a.wins++; h.losses++; }
+    let hs=0,as=0,hb=0,ab=0;
+    played.forEach(s=>{ hb+=s[0]; ab+=s[1]; if(s[0]>s[1])hs++; else if(s[1]>s[0])as++; });
+    h.played++; a.played++;
+    h.setsWon+=hs; h.setsLost+=as; a.setsWon+=as; a.setsLost+=hs;
+    h.ballsWon+=hb; h.ballsLost+=ab; a.ballsWon+=ab; a.ballsLost+=hb;
+    if(hs>as){ h.wins++; a.losses++; } else if(as>hs){ a.wins++; h.losses++; }
   });
   const arr=Object.values(stat);
-  arr.forEach(s=> s.diff=s.sf-s.sa);
-  arr.sort((x,y)=> y.wins-x.wins || y.diff-x.diff || y.sf-x.sf || x.pos-y.pos);
+  arr.sort((x,y)=> y.wins-x.wins
+    || (y.setsWon-y.setsLost)-(x.setsWon-x.setsLost)
+    || (y.ballsWon-y.ballsLost)-(x.ballsWon-x.ballsLost)
+    || x.pos-y.pos);
   return arr;
 }
 
@@ -1352,28 +1389,81 @@ async function deleteGroup(id){
   await loadTournament(); toast("Gruppe gelöscht.");
 }
 
-async function saveGroup(gid){
-  const block=$("#groupsContainer").querySelector(`[data-gid="${gid}"]`);
-  const byMatch={};
-  block.querySelectorAll("input[data-mid]").forEach(inp=>{
-    const id=inp.dataset.mid; (byMatch[id]=byMatch[id]||{});
-    const v=inp.value;
-    if(inp.dataset.f==="court") byMatch[id].court=v.trim()||null;
-    if(inp.dataset.f==="time")  byMatch[id].scheduled_time=v||null;
-    if(inp.dataset.f==="hs")    byMatch[id].home_score=v===""?null:parseInt(v);
-    if(inp.dataset.f==="as")    byMatch[id].away_score=v===""?null:parseInt(v);
-  });
-  const updates=Object.entries(byMatch).map(([id,f])=>{
-    f.status=(f.home_score!=null && f.away_score!=null)?"done":"pending";
-    return sb.from("matches").update(f).eq("id",id);
-  });
-  const btn=block.querySelector("[data-savegroup]"); btn.disabled=true;
-  const results=await Promise.all(updates); btn.disabled=false;
-  const bad=results.find(r=>r.error);
-  if(bad){ toast(bad.error.message,true); return; }
-  await loadTournament(); setSubtab("plan");
-  toast("Gespeichert.");
+function regFull(regId){
+  const r=currentRegs.find(x=>x.id===regId); if(!r) return "—";
+  if(r.player_id){ const p=PLAYERS.find(x=>x.id===r.player_id); return p?`${esc(p.first_name)} ${esc(p.last_name)}`:"(gelöscht)"; }
+  return `${esc(r.guest_first_name||"")} ${esc(r.guest_last_name||"")}`;
 }
+
+let resultMid=null;
+function openResultModal(mid){
+  const m=MATCHES.find(x=>x.id===mid); if(!m) return;
+  resultMid=mid;
+  $("#resMatchup").innerHTML=`<span>${regFull(m.home_reg_id)}</span><span style="color:var(--muted)">gegen</span><span>${regFull(m.away_reg_id)}</span>`;
+  const maxSets=(currentEvent.win_sets||3)*2-1;
+  const sets=Array.isArray(m.sets)?m.sets:[];
+  let html="";
+  for(let i=0;i<maxSets;i++){
+    const s=sets[i]||[null,null];
+    html+=`<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+      <span style="width:52px;color:var(--muted);font-size:13px">Satz ${i+1}</span>
+      <input class="score setinp" data-si="${i}" data-side="h" type="number" min="0" inputmode="numeric" value="${s[0]??""}">
+      <span class="vs">:</span>
+      <input class="score setinp" data-si="${i}" data-side="a" type="number" min="0" inputmode="numeric" value="${s[1]??""}"></div>`;
+  }
+  $("#setRows").innerHTML=html;
+  $("#setRows").querySelectorAll(".setinp").forEach(inp=>inp.addEventListener("input",updateTally));
+  updateTally();
+  $("#resultModal").classList.remove("hidden");
+}
+document.querySelectorAll("[data-close-result]").forEach(b=>b.addEventListener("click",()=>$("#resultModal").classList.add("hidden")));
+
+function readSets(){
+  const rows={};
+  $("#setRows").querySelectorAll(".setinp").forEach(inp=>{
+    const i=+inp.dataset.si; rows[i]=rows[i]||[null,null];
+    rows[i][inp.dataset.side==="h"?0:1]= inp.value===""?null:parseInt(inp.value);
+  });
+  return Object.keys(rows).sort((a,b)=>a-b).map(k=>rows[k]);
+}
+function tallyOf(sets){
+  let hs=0,as=0,hb=0,ab=0;
+  sets.forEach(s=>{ if(s[0]==null||s[1]==null) return; hb+=s[0]; ab+=s[1]; if(s[0]>s[1])hs++; else if(s[1]>s[0])as++; });
+  return {hs,as,hb,ab};
+}
+function updateTally(){
+  const need=currentEvent.win_sets||3;
+  const t=tallyOf(readSets());
+  const done=t.hs>=need||t.as>=need;
+  $("#setTally").innerHTML=`Sätze <span class="mono">${t.hs} : ${t.as}</span>`+
+    (done?`  <span style="color:var(--ok)">✓ Sieg</span>`:``)+
+    `<div style="color:var(--muted);font-size:12px;font-weight:400;margin-top:2px">Bälle ${t.hb} : ${t.ab}</div>`;
+}
+
+$("#saveResultBtn").addEventListener("click", async ()=>{
+  if(!resultMid) return;
+  const sets=readSets().filter(s=>!(s[0]==null&&s[1]==null));
+  // Teilweise gefüllte Sätze abfangen
+  if(sets.some(s=> (s[0]==null)!==(s[1]==null))){ toast("Bei jedem Satz beide Werte eintragen.",true); return; }
+  const t=tallyOf(sets);
+  const need=currentEvent.win_sets||3;
+  const done=t.hs>=need||t.as>=need;
+  const {error}=await sb.from("matches").update({
+    sets: sets.length?sets:null, home_score:t.hs, away_score:t.as, status: done?"done":"pending"
+  }).eq("id",resultMid);
+  if(error){ toast(error.message,true); return; }
+  $("#resultModal").classList.add("hidden");
+  await loadTournament(); setSubtab("plan");
+  toast("Ergebnis gespeichert.");
+});
+$("#clearResultBtn").addEventListener("click", async ()=>{
+  if(!resultMid) return;
+  const {error}=await sb.from("matches").update({ sets:null, home_score:null, away_score:null, status:"pending" }).eq("id",resultMid);
+  if(error){ toast(error.message,true); return; }
+  $("#resultModal").classList.add("hidden");
+  await loadTournament(); setSubtab("plan");
+  toast("Ergebnis geleert.");
+});
 
 // ---------- Helpers ----------
 function esc(s){ return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
