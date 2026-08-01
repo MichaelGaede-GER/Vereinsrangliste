@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Vereinsrangliste Maintal — Verwaltung</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F5F6F4; --surface:#FFFFFF; --ink:#16211C; --muted:#5E6B64;
+    --border:#E3E6E1; --border-strong:#CDD2CB;
+    --accent:#005CC8; --accent-hover:#0049A1; --accent-soft:#E7F0FB;
+    --danger:#C4362F; --danger-soft:#FBEAE9; --ok:#2E7D4F;
+    --shadow:0 1px 2px rgba(20,33,28,.06),0 8px 24px rgba(20,33,28,.06);
+    --r:10px;
+    --f-display:"Space Grotesk",system-ui,sans-serif;
+    --f-body:"Inter",system-ui,sans-serif;
+    --f-mono:"JetBrains Mono",ui-monospace,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--f-body);
+    font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  h1,h2,h3{font-family:var(--f-display);margin:0;letter-spacing:-.01em}
+  button{font-family:inherit;cursor:pointer}
+  input,select,textarea{font-family:inherit;font-size:15px}
+  .mono{font-family:var(--f-mono)}
+  .hidden{display:none !important}
+
+  /* ---------- Buttons ---------- */
+  .btn{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--border-strong);
+    background:var(--surface);color:var(--ink);padding:8px 14px;border-radius:8px;
+    font-weight:500;font-size:14px;transition:.12s;white-space:nowrap}
+  .btn:hover{border-color:var(--ink)}
+  .btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn-primary:hover{background:var(--accent-hover);border-color:var(--accent-hover)}
+  .btn-danger{background:transparent;border-color:transparent;color:var(--danger);padding:6px 10px}
+  .btn-danger:hover{background:var(--danger-soft)}
+  .btn-ghost{background:transparent;border-color:transparent;color:var(--muted);padding:6px 10px}
+  .btn-ghost:hover{background:var(--bg);color:var(--ink)}
+  .btn-sm{padding:5px 10px;font-size:13px}
+  .btn[disabled]{opacity:.5;cursor:not-allowed}
+
+  /* ---------- Fields ---------- */
+  .field{display:block;width:100%;padding:9px 11px;border:1px solid var(--border-strong);
+    border-radius:8px;background:var(--surface);color:var(--ink);transition:.12s}
+  .field:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  label.lbl{display:block;font-size:13px;font-weight:500;color:var(--muted);margin:0 0 5px}
+  .row{display:flex;gap:12px;flex-wrap:wrap}
+  .row>*{flex:1;min-width:0}
+
+  /* ---------- Login ---------- */
+  #loginView{min-height:100vh;display:grid;place-items:center;padding:24px}
+  .login-card{width:100%;max-width:380px;background:var(--surface);border:1px solid var(--border);
+    border-radius:14px;box-shadow:var(--shadow);padding:32px}
+  .brand{display:flex;align-items:center;gap:11px;margin-bottom:6px}
+  .brand-mark{width:36px;height:36px;border-radius:9px;background:var(--ink);color:#fff;
+    display:grid;place-items:center;font-family:var(--f-display);font-weight:700;font-size:19px}
+  .brand-mark span{color:#B7E400}
+  .login-card h1{font-size:20px;margin-top:14px}
+  .login-card p.sub{color:var(--muted);font-size:14px;margin:4px 0 22px}
+  .login-card .field{margin-bottom:12px}
+  .auth-msg{font-size:13px;padding:9px 11px;border-radius:8px;margin-bottom:12px}
+  .auth-msg.err{background:var(--danger-soft);color:var(--danger)}
+  .auth-msg.ok{background:#E8F3EC;color:var(--ok)}
+  .auth-toggle{text-align:center;margin-top:16px;font-size:13px;color:var(--muted)}
+  .auth-toggle a{color:var(--accent);cursor:pointer;font-weight:500}
+
+  /* ---------- App shell ---------- */
+  #appView{min-height:100vh;display:flex;flex-direction:column}
+  header.topbar{position:sticky;top:0;z-index:20;background:var(--surface);
+    border-bottom:1px solid var(--border);display:flex;align-items:center;
+    justify-content:space-between;padding:12px 22px;gap:16px}
+  .topbar .brand h1{font-size:16px}
+  .topbar .brand .sub{font-size:12px;color:var(--muted);font-weight:400}
+  .who{display:flex;align-items:center;gap:12px;font-size:13px;color:var(--muted)}
+  .tabs{display:flex;gap:2px;padding:0 22px;border-bottom:1px solid var(--border);
+    background:var(--surface)}
+  .tab{padding:12px 16px;border:none;background:none;color:var(--muted);font-weight:500;
+    font-size:14px;border-bottom:2px solid transparent;margin-bottom:-1px}
+  .tab.active{color:var(--ink);border-bottom-color:var(--accent)}
+  main{padding:26px 22px;max-width:1080px;width:100%;margin:0 auto;flex:1}
+  .page-head{display:flex;align-items:flex-end;justify-content:space-between;
+    gap:16px;margin-bottom:18px;flex-wrap:wrap}
+  .page-head h2{font-size:22px}
+  .page-head .count{font-family:var(--f-mono);font-size:13px;color:var(--muted);
+    background:var(--surface);border:1px solid var(--border);padding:3px 9px;border-radius:6px}
+
+  /* ---------- Toolbar ---------- */
+  .toolbar{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+  .toolbar .search{flex:1;min-width:200px;position:relative}
+  .toolbar .search input{padding-left:34px}
+  .toolbar .search svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);
+    color:var(--muted)}
+  .toolbar select{max-width:200px}
+
+  /* ---------- Table ---------- */
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
+    box-shadow:var(--shadow);overflow:hidden}
+  table{width:100%;border-collapse:collapse}
+  thead th{text-align:left;font-size:12px;font-weight:600;text-transform:uppercase;
+    letter-spacing:.04em;color:var(--muted);padding:11px 16px;border-bottom:1px solid var(--border);
+    background:#FBFBFA}
+  tbody td{padding:12px 16px;border-bottom:1px solid var(--border);vertical-align:middle}
+  tbody tr:last-child td{border-bottom:none}
+  tbody tr:hover{background:#FBFCFB}
+  td.num{font-family:var(--f-mono);color:var(--muted);font-size:13px;white-space:nowrap}
+  td .pname{font-weight:500}
+  td .pmail{color:var(--muted);font-size:13px}
+  .actions-cell{text-align:right;white-space:nowrap}
+  .empty{padding:48px 20px;text-align:center;color:var(--muted)}
+  .empty strong{display:block;color:var(--ink);font-family:var(--f-display);
+    font-size:16px;margin-bottom:4px}
+
+  /* ---------- Badge ---------- */
+  .badge{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:500;
+    padding:3px 9px;border-radius:20px;border:1px solid transparent;white-space:nowrap}
+  .badge .dot{width:7px;height:7px;border-radius:50%}
+  .badge.off{background:var(--bg);color:var(--muted);border-color:var(--border)}
+  .inactive-tag{font-size:11px;color:var(--danger);font-weight:500;
+    background:var(--danger-soft);padding:1px 7px;border-radius:5px;margin-left:8px}
+
+  /* ---------- Settings ---------- */
+  .settings-grid{display:grid;gap:22px}
+  .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
+    box-shadow:var(--shadow);padding:22px}
+  .panel h3{font-size:16px;margin-bottom:3px}
+  .panel .hint{color:var(--muted);font-size:13px;margin-bottom:18px}
+  .status-list{display:flex;flex-direction:column;gap:8px;margin-bottom:16px}
+  .status-item{display:flex;align-items:center;gap:12px;padding:9px 12px;border:1px solid var(--border);
+    border-radius:8px}
+  .status-item .swatch{width:16px;height:16px;border-radius:5px;flex-shrink:0}
+  .status-item .sname{flex:1;font-weight:500}
+  .status-item .sord{font-family:var(--f-mono);font-size:12px;color:var(--muted)}
+  .add-status-row{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap}
+  .add-status-row .grow{flex:1;min-width:140px}
+  input[type=color]{width:44px;height:40px;padding:3px;border:1px solid var(--border-strong);
+    border-radius:8px;background:var(--surface);cursor:pointer}
+
+  /* ---------- Modal ---------- */
+  .overlay{position:fixed;inset:0;background:rgba(20,33,28,.34);z-index:40;
+    display:grid;place-items:center;padding:20px}
+  .modal{width:100%;max-width:520px;background:var(--surface);border-radius:14px;
+    box-shadow:0 20px 50px rgba(20,33,28,.25);max-height:90vh;overflow:auto}
+  .modal-head{display:flex;align-items:center;justify-content:space-between;
+    padding:18px 22px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--surface)}
+  .modal-head h3{font-size:18px}
+  .modal-body{padding:22px}
+  .modal-body .lbl{margin-top:14px}
+  .modal-body .lbl:first-child{margin-top:0}
+  .modal-foot{display:flex;justify-content:flex-end;gap:10px;padding:16px 22px;
+    border-top:1px solid var(--border);position:sticky;bottom:0;background:var(--surface)}
+  .x-close{border:none;background:none;color:var(--muted);font-size:22px;line-height:1;
+    padding:4px 8px;border-radius:6px}
+  .x-close:hover{background:var(--bg);color:var(--ink)}
+  .check{display:flex;align-items:center;gap:9px;margin-top:16px;font-size:14px;cursor:pointer}
+  .check input{width:17px;height:17px;accent-color:var(--accent)}
+
+  /* ---------- Setup notice ---------- */
+  #setupNotice{max-width:560px;margin:60px auto;padding:28px;background:var(--surface);
+    border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow)}
+  #setupNotice h2{font-size:19px;margin-bottom:10px}
+  #setupNotice code{font-family:var(--f-mono);background:var(--bg);padding:2px 6px;
+    border-radius:5px;font-size:13px}
+  #setupNotice ol{padding-left:20px;color:var(--muted)}
+  #setupNotice li{margin-bottom:7px}
+
+  /* ---------- Toast ---------- */
+  #toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(120%);
+    background:var(--ink);color:#fff;padding:11px 18px;border-radius:9px;font-size:14px;
+    box-shadow:0 8px 24px rgba(0,0,0,.2);z-index:60;transition:transform .25s;max-width:90vw}
+  #toast.show{transform:translateX(-50%) translateY(0)}
+  #toast.err{background:var(--danger)}
+
+  @media(max-width:640px){
+    .actions-cell{text-align:left}
+    thead th.hide-sm,tbody td.hide-sm{display:none}
+    main{padding:20px 14px}
+    .tabs,header.topbar{padding-left:14px;padding-right:14px}
+  }
+</style>
+</head>
+<body>
+
+<!-- ================= SETUP-HINWEIS (falls config fehlt) ================= -->
+<div id="setupNotice" class="hidden">
+  <h2>Fast fertig — Zugangsdaten fehlen</h2>
+  <p style="color:var(--muted)">Öffne die Datei <code>config.js</code> und trage die Werte aus deinem
+  Supabase-Projekt ein:</p>
+  <ol>
+    <li>Supabase öffnen → <strong>Project Settings → Data API</strong> → <code>url</code> kopieren</li>
+    <li><strong>Project Settings → API Keys</strong> → <code>anon public</code> kopieren</li>
+    <li>Beides in <code>config.js</code> einsetzen und Seite neu laden</li>
+  </ol>
+</div>
+
+<!-- ================= LOGIN ================= -->
+<div id="loginView" class="hidden">
+  <div class="login-card">
+    <div class="brand">
+      <div class="brand-mark">V<span>R</span></div>
+    </div>
+    <h1 id="authTitle">Anmelden</h1>
+    <p class="sub" id="authSub">Verwaltung der Vereinsrangliste Maintal</p>
+
+    <div id="authMsg" class="auth-msg hidden"></div>
+
+    <label class="lbl" for="authEmail">E-Mail</label>
+    <input id="authEmail" class="field" type="email" autocomplete="email" placeholder="name@verein.de">
+    <label class="lbl" for="authPass">Passwort</label>
+    <input id="authPass" class="field" type="password" autocomplete="current-password" placeholder="••••••••">
+    <button id="authSubmit" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:6px">Anmelden</button>
+
+    <div class="auth-toggle">
+      <span id="toggleText">Noch kein Turnierleiter-Konto?</span>
+      <a id="toggleLink">Registrieren</a>
+    </div>
+  </div>
+</div>
+
+<!-- ================= APP ================= -->
+<div id="appView" class="hidden">
+  <header class="topbar">
+    <div class="brand" style="display:flex;align-items:center;gap:11px">
+      <div class="brand-mark">V<span>R</span></div>
+      <div>
+        <h1>Vereinsrangliste Maintal</h1>
+        <div class="sub">Verwaltung</div>
+      </div>
+    </div>
+    <div class="who">
+      <span id="whoEmail" class="mono"></span>
+      <button id="logoutBtn" class="btn btn-sm">Abmelden</button>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab active" data-tab="players">Spieler</button>
+    <button class="tab" data-tab="settings">Einstellungen</button>
+  </nav>
+
+  <!-- ---- Spieler ---- -->
+  <main id="tab-players">
+    <div class="page-head">
+      <div style="display:flex;align-items:center;gap:12px">
+        <h2>Spieler</h2>
+        <span class="count" id="playerCount">0</span>
+      </div>
+      <button class="btn btn-primary" id="addPlayerBtn">+ Spieler anlegen</button>
+    </div>
+
+    <div class="toolbar">
+      <div class="search">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        <input id="playerSearch" class="field" placeholder="Suchen — Name, Nummer, E-Mail …">
+      </div>
+      <select id="statusFilter" class="field"><option value="">Alle Status</option></select>
+      <select id="activeFilter" class="field">
+        <option value="">Aktiv & inaktiv</option>
+        <option value="active">Nur aktive</option>
+        <option value="inactive">Nur inaktive</option>
+      </select>
+    </div>
+
+    <div class="card">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:90px">Nr.</th>
+            <th>Name</th>
+            <th>Status</th>
+            <th class="hide-sm">E-Mail</th>
+            <th class="actions-cell">Aktion</th>
+          </tr>
+        </thead>
+        <tbody id="playersBody"></tbody>
+      </table>
+      <div id="playersEmpty" class="empty hidden">
+        <strong>Noch keine Spieler</strong>
+        Lege deinen ersten Spieler an, um loszulegen.
+      </div>
+    </div>
+  </main>
+
+  <!-- ---- Einstellungen ---- -->
+  <main id="tab-settings" class="hidden">
+    <div class="page-head"><h2>Einstellungen</h2></div>
+    <div class="settings-grid">
+
+      <!-- Status verwalten -->
+      <div class="panel">
+        <h3>Mitgliedschafts-Status</h3>
+        <p class="hint">Lege die Status-Typen an, die du deinen Spielern zuweisen kannst.</p>
+        <div class="status-list" id="statusList"></div>
+        <div class="add-status-row">
+          <div class="grow">
+            <label class="lbl">Name</label>
+            <input id="newStatusName" class="field" placeholder="z. B. Ehrenmitglied">
+          </div>
+          <div>
+            <label class="lbl">Farbe</label>
+            <input id="newStatusColor" type="color" value="#005CC8">
+          </div>
+          <div style="max-width:100px">
+            <label class="lbl">Reihenfolge</label>
+            <input id="newStatusOrder" class="field mono" type="number" value="0">
+          </div>
+          <button class="btn btn-primary" id="addStatusBtn">Hinzufügen</button>
+        </div>
+      </div>
+
+      <!-- Ranglisten-PDF -->
+      <div class="panel">
+        <h3>Ranglisten-PDF für die Setzung</h3>
+        <p class="hint">Link zum PDF, aus dem später automatisch die Setzung erzeugt wird.
+          Du kannst ihn jederzeit ändern.</p>
+        <label class="lbl">PDF-URL</label>
+        <div class="row" style="align-items:stretch">
+          <input id="rankingUrl" class="field" placeholder="https://…/rangliste.pdf" style="flex:3">
+          <button class="btn btn-primary" id="saveRankingBtn" style="flex:0 0 auto">Speichern</button>
+        </div>
+        <div id="rankingLinkPreview" style="margin-top:10px"></div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<div id="toast"></div>
+
+<!-- ================= PLAYER MODAL ================= -->
+<div id="playerModal" class="overlay hidden">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="playerModalTitle">Spieler anlegen</h3>
+      <button class="x-close" data-close-player>×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="pId">
+      <div class="row">
+        <div style="flex:0 0 130px">
+          <label class="lbl">Spieler-Nr.</label>
+          <input id="pNumber" class="field mono" placeholder="z. B. 1001">
+        </div>
+        <div>
+          <label class="lbl">Status</label>
+          <select id="pStatus" class="field"><option value="">— kein Status —</option></select>
+        </div>
+      </div>
+      <div class="row">
+        <div><label class="lbl">Vorname *</label><input id="pFirst" class="field"></div>
+        <div><label class="lbl">Nachname *</label><input id="pLast" class="field"></div>
+      </div>
+      <div class="row">
+        <div><label class="lbl">E-Mail</label><input id="pEmail" class="field" type="email"></div>
+        <div><label class="lbl">Telefon</label><input id="pPhone" class="field"></div>
+      </div>
+      <div class="row">
+        <div><label class="lbl">Geburtsdatum</label><input id="pBirth" class="field" type="date"></div>
+        <div>
+          <label class="lbl">Geschlecht</label>
+          <select id="pGender" class="field">
+            <option value="">—</option><option value="m">männlich</option>
+            <option value="w">weiblich</option><option value="d">divers</option>
+          </select>
+        </div>
+      </div>
+      <label class="lbl">Notiz</label>
+      <textarea id="pNotes" class="field" rows="2"></textarea>
+      <label class="check"><input type="checkbox" id="pActive" checked> Spieler ist aktiv</label>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-danger hidden" id="deletePlayerBtn">Löschen</button>
+      <span style="flex:1"></span>
+      <button class="btn" data-close-player>Abbrechen</button>
+      <button class="btn btn-primary" id="savePlayerBtn">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= STATUS EDIT MODAL ================= -->
+<div id="statusModal" class="overlay hidden">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-head">
+      <h3>Status bearbeiten</h3>
+      <button class="x-close" data-close-status>×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="sId">
+      <label class="lbl">Name</label>
+      <input id="sName" class="field">
+      <div class="row" style="margin-top:14px">
+        <div style="flex:0 0 auto"><label class="lbl">Farbe</label><input id="sColor" type="color"></div>
+        <div><label class="lbl">Reihenfolge</label><input id="sOrder" class="field mono" type="number"></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-danger" id="deleteStatusBtn">Löschen</button>
+      <span style="flex:1"></span>
+      <button class="btn" data-close-status>Abbrechen</button>
+      <button class="btn btn-primary" id="saveStatusBtn">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script>
+// =====================================================================
+//  App-Logik
+// =====================================================================
+const $ = s => document.querySelector(s);
+const cfg = window.SUPABASE_CONFIG || {};
+const configured = cfg.url && cfg.anonKey
+  && !cfg.url.includes("DEIN-PROJEKT") && !cfg.anonKey.includes("DEIN-ANON");
+
+let sb = null;
+let STATUSES = [];      // Cache Mitgliedschafts-Status
+let PLAYERS = [];       // Cache Spieler
+let signupMode = false;
+
+// ---- Toast ----
+let toastTimer;
+function toast(msg, isErr){
+  const t = $("#toast"); t.textContent = msg;
+  t.className = "show" + (isErr ? " err" : "");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=> t.className = "", 2600);
+}
+
+// ---------------------------------------------------------------------
+//  Start
+// ---------------------------------------------------------------------
+if(!configured){
+  $("#setupNotice").classList.remove("hidden");
+}else{
+  sb = supabase.createClient(cfg.url, cfg.anonKey);
+  initAuth();
+}
+
+// ---------------------------------------------------------------------
+//  Authentifizierung
+// ---------------------------------------------------------------------
+async function initAuth(){
+  const { data:{ session } } = await sb.auth.getSession();
+  session ? enterApp(session) : showLogin();
+
+  sb.auth.onAuthStateChange((_e, s)=>{
+    if(s) enterApp(s); else showLogin();
+  });
+}
+
+function showLogin(){
+  $("#appView").classList.add("hidden");
+  $("#loginView").classList.remove("hidden");
+}
+
+function setAuthMsg(text, kind){
+  const m = $("#authMsg");
+  if(!text){ m.className = "auth-msg hidden"; return; }
+  m.textContent = text;
+  m.className = "auth-msg " + (kind||"err");
+}
+
+$("#toggleLink").addEventListener("click", ()=>{
+  signupMode = !signupMode;
+  $("#authTitle").textContent  = signupMode ? "Registrieren" : "Anmelden";
+  $("#authSub").textContent    = signupMode ? "Neues Turnierleiter-Konto erstellen"
+                                            : "Verwaltung der Vereinsrangliste Maintal";
+  $("#authSubmit").textContent = signupMode ? "Konto erstellen" : "Anmelden";
+  $("#toggleText").textContent = signupMode ? "Schon ein Konto?" : "Noch kein Turnierleiter-Konto?";
+  $("#toggleLink").textContent = signupMode ? "Anmelden" : "Registrieren";
+  setAuthMsg("");
+});
+
+$("#authSubmit").addEventListener("click", doAuth);
+$("#authPass").addEventListener("keydown", e=>{ if(e.key==="Enter") doAuth(); });
+
+async function doAuth(){
+  const email = $("#authEmail").value.trim();
+  const pass  = $("#authPass").value;
+  if(!email || !pass){ setAuthMsg("Bitte E-Mail und Passwort eingeben."); return; }
+  const btn = $("#authSubmit"); btn.disabled = true;
+  try{
+    if(signupMode){
+      const { error } = await sb.auth.signUp({ email, password: pass });
+      if(error) throw error;
+      setAuthMsg("Konto erstellt. Je nach Supabase-Einstellung musst du deine E-Mail bestätigen.", "ok");
+    }else{
+      const { error } = await sb.auth.signInWithPassword({ email, password: pass });
+      if(error) throw error;
+    }
+  }catch(err){
+    setAuthMsg(translateAuthError(err.message));
+  }finally{ btn.disabled = false; }
+}
+
+function translateAuthError(m){
+  if(/Invalid login/i.test(m)) return "E-Mail oder Passwort ist falsch.";
+  if(/already registered/i.test(m)) return "Diese E-Mail ist bereits registriert.";
+  if(/at least 6/i.test(m)) return "Das Passwort muss mindestens 6 Zeichen haben.";
+  if(/Email not confirmed/i.test(m)) return "Bitte bestätige zuerst deine E-Mail-Adresse.";
+  return m;
+}
+
+$("#logoutBtn").addEventListener("click", ()=> sb.auth.signOut());
+
+async function enterApp(session){
+  $("#loginView").classList.add("hidden");
+  $("#appView").classList.remove("hidden");
+  $("#whoEmail").textContent = session.user.email;
+  await loadStatuses();
+  await loadPlayers();
+  await loadSettings();
+}
+
+// ---------------------------------------------------------------------
+//  Tabs
+// ---------------------------------------------------------------------
+document.querySelectorAll(".tab").forEach(t=>{
+  t.addEventListener("click", ()=>{
+    document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
+    t.classList.add("active");
+    const name = t.dataset.tab;
+    $("#tab-players").classList.toggle("hidden", name!=="players");
+    $("#tab-settings").classList.toggle("hidden", name!=="settings");
+  });
+});
+
+// ---------------------------------------------------------------------
+//  Mitgliedschafts-Status
+// ---------------------------------------------------------------------
+async function loadStatuses(){
+  const { data, error } = await sb.from("membership_status")
+    .select("*").order("sort_order").order("name");
+  if(error){ toast("Status konnten nicht geladen werden.", true); return; }
+  STATUSES = data || [];
+  renderStatusList();
+  fillStatusSelects();
+}
+
+function statusById(id){ return STATUSES.find(s=>s.id===id); }
+
+function fillStatusSelects(){
+  const opts = '<option value="">— kein Status —</option>' +
+    STATUSES.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join("");
+  $("#pStatus").innerHTML = opts;
+  $("#statusFilter").innerHTML = '<option value="">Alle Status</option>' +
+    STATUSES.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join("");
+}
+
+function renderStatusList(){
+  const box = $("#statusList");
+  if(!STATUSES.length){ box.innerHTML = '<p class="hint" style="margin:0">Noch keine Status angelegt.</p>'; return; }
+  box.innerHTML = STATUSES.map(s=>`
+    <div class="status-item">
+      <span class="swatch" style="background:${s.color}"></span>
+      <span class="sname">${esc(s.name)}</span>
+      <span class="sord mono">#${s.sort_order}</span>
+      <button class="btn btn-ghost btn-sm" data-edit-status="${s.id}">Bearbeiten</button>
+    </div>`).join("");
+  box.querySelectorAll("[data-edit-status]").forEach(b=>
+    b.addEventListener("click", ()=> openStatusModal(b.dataset.editStatus)));
+}
+
+$("#addStatusBtn").addEventListener("click", async ()=>{
+  const name = $("#newStatusName").value.trim();
+  if(!name){ toast("Bitte einen Namen eingeben.", true); return; }
+  const { error } = await sb.from("membership_status").insert({
+    name,
+    color: $("#newStatusColor").value,
+    sort_order: parseInt($("#newStatusOrder").value)||0
+  });
+  if(error){ toast(error.message.includes("duplicate") ? "Dieser Name existiert schon." : error.message, true); return; }
+  $("#newStatusName").value = "";
+  await loadStatuses();
+  toast("Status hinzugefügt.");
+});
+
+// --- Status-Modal ---
+function openStatusModal(id){
+  const s = statusById(id); if(!s) return;
+  $("#sId").value = s.id;
+  $("#sName").value = s.name;
+  $("#sColor").value = s.color;
+  $("#sOrder").value = s.sort_order;
+  $("#statusModal").classList.remove("hidden");
+}
+document.querySelectorAll("[data-close-status]").forEach(b=>
+  b.addEventListener("click", ()=> $("#statusModal").classList.add("hidden")));
+
+$("#saveStatusBtn").addEventListener("click", async ()=>{
+  const id = $("#sId").value;
+  const name = $("#sName").value.trim();
+  if(!name){ toast("Name darf nicht leer sein.", true); return; }
+  const { error } = await sb.from("membership_status").update({
+    name, color: $("#sColor").value, sort_order: parseInt($("#sOrder").value)||0
+  }).eq("id", id);
+  if(error){ toast(error.message, true); return; }
+  $("#statusModal").classList.add("hidden");
+  await loadStatuses(); renderPlayers();
+  toast("Status gespeichert.");
+});
+
+$("#deleteStatusBtn").addEventListener("click", async ()=>{
+  const id = $("#sId").value;
+  if(!confirm("Status löschen? Spieler mit diesem Status behalten ihren Eintrag, verlieren aber die Zuordnung.")) return;
+  const { error } = await sb.from("membership_status").delete().eq("id", id);
+  if(error){ toast(error.message, true); return; }
+  $("#statusModal").classList.add("hidden");
+  await loadStatuses(); await loadPlayers();
+  toast("Status gelöscht.");
+});
+
+// ---------------------------------------------------------------------
+//  Spieler
+// ---------------------------------------------------------------------
+async function loadPlayers(){
+  const { data, error } = await sb.from("players")
+    .select("*").order("last_name").order("first_name");
+  if(error){ toast("Spieler konnten nicht geladen werden.", true); return; }
+  PLAYERS = data || [];
+  renderPlayers();
+}
+
+function renderPlayers(){
+  const q = $("#playerSearch").value.trim().toLowerCase();
+  const fStatus = $("#statusFilter").value;
+  const fActive = $("#activeFilter").value;
+
+  let rows = PLAYERS.filter(p=>{
+    if(fStatus && p.membership_status_id !== fStatus) return false;
+    if(fActive==="active" && !p.is_active) return false;
+    if(fActive==="inactive" && p.is_active) return false;
+    if(q){
+      const hay = `${p.player_number||""} ${p.first_name} ${p.last_name} ${p.email||""}`.toLowerCase();
+      if(!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
+  $("#playerCount").textContent = rows.length;
+  const body = $("#playersBody");
+  $("#playersEmpty").classList.toggle("hidden", PLAYERS.length>0);
+
+  body.innerHTML = rows.map(p=>{
+    const s = statusById(p.membership_status_id);
+    const badge = s
+      ? `<span class="badge" style="background:${hexA(s.color,.12)};color:${s.color};border-color:${hexA(s.color,.25)}"><span class="dot" style="background:${s.color}"></span>${esc(s.name)}</span>`
+      : `<span class="badge off">—</span>`;
+    return `<tr data-edit-player="${p.id}" style="cursor:pointer">
+      <td class="num">${esc(p.player_number||"—")}</td>
+      <td><span class="pname">${esc(p.last_name)}, ${esc(p.first_name)}</span>${p.is_active?"":'<span class="inactive-tag">inaktiv</span>'}</td>
+      <td>${badge}</td>
+      <td class="hide-sm pmail">${esc(p.email||"")}</td>
+      <td class="actions-cell"><button class="btn btn-ghost btn-sm" data-edit-player="${p.id}">Bearbeiten</button></td>
+    </tr>`;
+  }).join("");
+
+  body.querySelectorAll("[data-edit-player]").forEach(el=>
+    el.addEventListener("click", e=>{ e.stopPropagation(); openPlayerModal(el.dataset.editPlayer); }));
+}
+
+["#playerSearch","#statusFilter","#activeFilter"].forEach(sel=>
+  $(sel).addEventListener("input", renderPlayers));
+
+// --- Spieler-Modal ---
+function openPlayerModal(id){
+  const p = id ? PLAYERS.find(x=>x.id===id) : null;
+  $("#playerModalTitle").textContent = p ? "Spieler bearbeiten" : "Spieler anlegen";
+  $("#pId").value      = p?.id || "";
+  $("#pNumber").value  = p?.player_number || "";
+  $("#pFirst").value   = p?.first_name || "";
+  $("#pLast").value    = p?.last_name || "";
+  $("#pStatus").value  = p?.membership_status_id || "";
+  $("#pEmail").value   = p?.email || "";
+  $("#pPhone").value   = p?.phone || "";
+  $("#pBirth").value   = p?.birth_date || "";
+  $("#pGender").value  = p?.gender || "";
+  $("#pNotes").value   = p?.notes || "";
+  $("#pActive").checked = p ? p.is_active : true;
+  $("#deletePlayerBtn").classList.toggle("hidden", !p);
+  $("#playerModal").classList.remove("hidden");
+  setTimeout(()=> $("#pFirst").focus(), 40);
+}
+$("#addPlayerBtn").addEventListener("click", ()=> openPlayerModal(null));
+document.querySelectorAll("[data-close-player]").forEach(b=>
+  b.addEventListener("click", ()=> $("#playerModal").classList.add("hidden")));
+
+$("#savePlayerBtn").addEventListener("click", async ()=>{
+  const first = $("#pFirst").value.trim();
+  const last  = $("#pLast").value.trim();
+  if(!first || !last){ toast("Vor- und Nachname sind Pflicht.", true); return; }
+  const rec = {
+    player_number: $("#pNumber").value.trim() || null,
+    first_name: first, last_name: last,
+    membership_status_id: $("#pStatus").value || null,
+    email: $("#pEmail").value.trim() || null,
+    phone: $("#pPhone").value.trim() || null,
+    birth_date: $("#pBirth").value || null,
+    gender: $("#pGender").value || null,
+    notes: $("#pNotes").value.trim() || null,
+    is_active: $("#pActive").checked
+  };
+  const id = $("#pId").value;
+  const q = id ? sb.from("players").update(rec).eq("id", id)
+               : sb.from("players").insert(rec);
+  const { error } = await q;
+  if(error){
+    toast(error.message.includes("duplicate") ? "Diese Spieler-Nr. ist schon vergeben." : error.message, true);
+    return;
+  }
+  $("#playerModal").classList.add("hidden");
+  await loadPlayers();
+  toast(id ? "Spieler gespeichert." : "Spieler angelegt.");
+});
+
+$("#deletePlayerBtn").addEventListener("click", async ()=>{
+  const id = $("#pId").value;
+  if(!confirm("Diesen Spieler wirklich löschen?")) return;
+  const { error } = await sb.from("players").delete().eq("id", id);
+  if(error){ toast(error.message, true); return; }
+  $("#playerModal").classList.add("hidden");
+  await loadPlayers();
+  toast("Spieler gelöscht.");
+});
+
+// ---------------------------------------------------------------------
+//  Einstellungen: Ranglisten-PDF-Link
+// ---------------------------------------------------------------------
+async function loadSettings(){
+  const { data } = await sb.from("app_settings").select("*").eq("key","ranking_pdf_url").maybeSingle();
+  const url = data?.value || "";
+  $("#rankingUrl").value = url;
+  renderRankingPreview(url);
+}
+function renderRankingPreview(url){
+  const box = $("#rankingLinkPreview");
+  box.innerHTML = url
+    ? `<a href="${esc(url)}" target="_blank" rel="noopener" style="color:var(--accent);font-size:13px">PDF öffnen ↗</a>`
+    : "";
+}
+$("#saveRankingBtn").addEventListener("click", async ()=>{
+  const url = $("#rankingUrl").value.trim();
+  const { error } = await sb.from("app_settings")
+    .upsert({ key:"ranking_pdf_url", value:url, updated_at:new Date().toISOString() });
+  if(error){ toast(error.message, true); return; }
+  renderRankingPreview(url);
+  toast("Ranglisten-Link gespeichert.");
+});
+
+// ---------------------------------------------------------------------
+//  Helpers
+// ---------------------------------------------------------------------
+function esc(s){ return String(s??"").replace(/[&<>"']/g, c=>(
+  {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function hexA(hex, a){
+  const h = hex.replace("#",""); if(h.length!==6) return hex;
+  const r=parseInt(h.slice(0,2),16),g=parseInt(h.slice(2,4),16),b=parseInt(h.slice(4,6),16);
+  return `rgba(${r},${g},${b},${a})`;
+}
+</script>
+</body>
+</html>
