@@ -441,6 +441,16 @@
         </div>
         <div id="rankingLinkPreview" style="margin-top:10px"></div>
       </div>
+
+      <div class="panel">
+        <h3>Tabellen-Wertung</h3>
+        <p class="hint">Lege fest, was bei der Platzierung zuerst zählt. Ganz oben = höchste Priorität. Bei Gleichstand entscheidet das nächste Kriterium.</p>
+        <div class="status-list" id="critList"></div>
+        <div class="add-status-row" style="align-items:flex-end">
+          <div style="max-width:160px"><label class="lbl">Punkte pro Sieg</label><input id="ppw" class="field mono" type="number" min="1" value="2"></div>
+          <button class="btn btn-primary" id="saveStandingsBtn">Wertung speichern</button>
+        </div>
+      </div>
     </div>
   </main>
 </div>
@@ -633,6 +643,8 @@ let currentEvent = null, currentRegs = [];
 let signupMode = false, convertRegId = null;
 let seedList = [], pendingProposal = null;
 let GROUPS = [], GPLAYERS = [], MATCHES = [];
+let STANDINGS = { order:["match_points","h2h","sets","balls"], pointsPerWin:2 };
+const CRIT_LABELS = { match_points:"Spielpunkte", h2h:"Direkter Vergleich", sets:"Sätze", balls:"Bälle" };
 
 if(window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc =
   "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
@@ -1007,7 +1019,32 @@ async function addRegistration(playerId){
 async function loadSettings(){
   const {data}=await sb.from("app_settings").select("*").eq("key","ranking_pdf_url").maybeSingle();
   const url=data?.value||""; $("#rankingUrl").value=url; renderRankingPreview(url);
+
+  const {data:sc}=await sb.from("app_settings").select("value").eq("key","standings_config").maybeSingle();
+  if(sc?.value && Array.isArray(sc.value.order)) STANDINGS=sc.value;
+  renderCritList();
 }
+function renderCritList(){
+  $("#critList").innerHTML=STANDINGS.order.map((c,i)=>`
+    <div class="status-item">
+      <span class="sord mono">${i+1}</span>
+      <span class="sname">${CRIT_LABELS[c]||c}</span>
+      <button class="btn btn-ghost btn-sm" data-cup="${i}" ${i===0?"disabled":""}>↑</button>
+      <button class="btn btn-ghost btn-sm" data-cdown="${i}" ${i===STANDINGS.order.length-1?"disabled":""}>↓</button>
+    </div>`).join("");
+  $("#ppw").value=STANDINGS.pointsPerWin;
+  $("#critList").querySelectorAll("[data-cup]").forEach(b=>b.addEventListener("click",()=>moveCrit(+b.dataset.cup,-1)));
+  $("#critList").querySelectorAll("[data-cdown]").forEach(b=>b.addEventListener("click",()=>moveCrit(+b.dataset.cdown,1)));
+}
+function moveCrit(i,d){ const j=i+d; if(j<0||j>=STANDINGS.order.length) return;
+  [STANDINGS.order[i],STANDINGS.order[j]]=[STANDINGS.order[j],STANDINGS.order[i]]; renderCritList(); }
+$("#saveStandingsBtn").addEventListener("click", async ()=>{
+  STANDINGS.pointsPerWin=parseInt($("#ppw").value)||2;
+  const {error}=await sb.from("app_settings").upsert({key:"standings_config",value:STANDINGS,updated_at:new Date().toISOString()});
+  if(error){ toast(error.message,true); return; }
+  toast("Wertung gespeichert.");
+  if(currentEvent && GROUPS.length) renderGroups();
+});
 function renderRankingPreview(url){
   $("#rankingLinkPreview").innerHTML=url?`<a href="${esc(url)}" target="_blank" rel="noopener" style="font-size:13px">PDF öffnen ↗</a>`:"";
 }
@@ -1261,6 +1298,7 @@ function renderGroups(){
         <td class="st">${s.played}</td>
         <td class="st">${s.wins}</td>
         <td class="st">${s.losses}</td>
+        <td class="st mono">${s.points}</td>
         <td class="st mono">${s.setsWon}:${s.setsLost}</td>
         <td class="st mono">${s.ballsWon}:${s.ballsLost}</td>
       </tr>`).join("");
@@ -1277,9 +1315,10 @@ function renderGroups(){
       </table></div>
       <div class="gb-section-title">Tabelle</div>
       <div style="overflow-x:auto"><table class="standings">
-        <thead><tr><th>Pl.</th><th>Spieler</th><th class="st">Sp</th><th class="st">S</th><th class="st">N</th><th class="st">Sätze</th><th class="st">Bälle</th></tr></thead>
+        <thead><tr><th>Pl.</th><th>Spieler</th><th class="st">Sp</th><th class="st">S</th><th class="st">N</th><th class="st">Pkte</th><th class="st">Sätze</th><th class="st">Bälle</th></tr></thead>
         <tbody>${srows}</tbody>
       </table></div>
+      <div style="padding:6px 18px 2px;color:var(--muted);font-size:12px">Wertung: ${STANDINGS.order.map(c=>CRIT_LABELS[c]||c).join(" → ")}</div>
       <div class="gb-foot" style="justify-content:flex-start">
         <span class="hint" style="margin:0;color:var(--muted);font-size:12px">Court &amp; Zeit werden beim Verlassen des Feldes automatisch gespeichert. Ergebnis über „Ergebnis" eintragen.</span>
       </div>
@@ -1314,27 +1353,68 @@ async function autoSaveField(inp){
 
 function computeStandings(groupId){
   const members=GPLAYERS.filter(gp=>gp.group_id===groupId).sort((a,b)=>a.position-b.position);
+  const ids=members.map(m=>m.registration_id);
+  const ppw=STANDINGS.pointsPerWin||2;
   const stat={};
   members.forEach(gp=> stat[gp.registration_id]={regId:gp.registration_id, pos:gp.position,
-    played:0,wins:0,losses:0,setsWon:0,setsLost:0,ballsWon:0,ballsLost:0});
-  MATCHES.filter(m=>m.group_id===groupId).forEach(m=>{
-    const sets=Array.isArray(m.sets)?m.sets:[];
-    const played=sets.filter(s=>s&&s.length===2&&s[0]!=null&&s[1]!=null);
-    if(!played.length) return;
-    const h=stat[m.home_reg_id], a=stat[m.away_reg_id]; if(!h||!a) return;
+    played:0,wins:0,losses:0,setsWon:0,setsLost:0,ballsWon:0,ballsLost:0,points:0});
+  const gmatches=MATCHES.filter(m=>m.group_id===groupId).map(m=>{
+    const sets=(Array.isArray(m.sets)?m.sets:[]).filter(s=>s&&s.length===2&&s[0]!=null&&s[1]!=null);
+    return {home:m.home_reg_id, away:m.away_reg_id, sets};
+  }).filter(m=>m.sets.length);
+
+  gmatches.forEach(m=>{
+    const h=stat[m.home], a=stat[m.away]; if(!h||!a) return;
     let hs=0,as=0,hb=0,ab=0;
-    played.forEach(s=>{ hb+=s[0]; ab+=s[1]; if(s[0]>s[1])hs++; else if(s[1]>s[0])as++; });
+    m.sets.forEach(s=>{ hb+=s[0]; ab+=s[1]; if(s[0]>s[1])hs++; else if(s[1]>s[0])as++; });
     h.played++; a.played++;
     h.setsWon+=hs; h.setsLost+=as; a.setsWon+=as; a.setsLost+=hs;
     h.ballsWon+=hb; h.ballsLost+=ab; a.ballsWon+=ab; a.ballsLost+=hb;
     if(hs>as){ h.wins++; a.losses++; } else if(as>hs){ a.wins++; h.losses++; }
   });
-  const arr=Object.values(stat);
-  arr.sort((x,y)=> y.wins-x.wins
-    || (y.setsWon-y.setsLost)-(x.setsWon-x.setsLost)
-    || (y.ballsWon-y.ballsLost)-(x.ballsWon-x.ballsLost)
-    || x.pos-y.pos);
-  return arr;
+  Object.values(stat).forEach(s=> s.points=s.wins*ppw);
+
+  const ordered=orderPlayers(ids, STANDINGS.order.length?STANDINGS.order:["match_points","sets","balls"], stat, gmatches, ppw);
+  return ordered.map(id=>stat[id]);
+}
+
+// Schlüssel je Kriterium (höher = besser). "h2h" wird nur innerhalb der aktuell gleichstehenden Gruppe gewertet.
+function critKey(crit, id, groupIds, stat, gmatches, ppw){
+  const s=stat[id];
+  if(crit==="match_points") return s.wins*ppw;
+  if(crit==="sets")  return s.setsWon - s.setsLost;
+  if(crit==="balls") return s.ballsWon - s.ballsLost;
+  if(crit==="h2h"){
+    let wins=0, sd=0, bd=0;
+    gmatches.forEach(m=>{
+      if(!groupIds.includes(m.home)||!groupIds.includes(m.away)) return;
+      if(m.home!==id && m.away!==id) return;
+      let hs=0,as=0,hb=0,ab=0;
+      m.sets.forEach(x=>{ hb+=x[0]; ab+=x[1]; if(x[0]>x[1])hs++; else if(x[1]>x[0])as++; });
+      const home=m.home===id;
+      const my=home?hs:as, opp=home?as:hs, myB=home?hb:ab, oppB=home?ab:hb;
+      if(my>opp) wins++;
+      sd += my-opp; bd += myB-oppB;
+    });
+    // Mini-Tabelle: erst Siege, dann Satzdiff, dann Balldiff — als eine Zahl
+    return wins*1e9 + (sd+10000)*1e4 + (bd+5000);
+  }
+  return 0;
+}
+// Rekursiv sortieren: pro Kriterium in Cluster gleicher Werte gruppieren, Cluster mit dem nächsten Kriterium verfeinern
+function orderPlayers(ids, criteria, stat, gmatches, ppw){
+  if(ids.length<=1 || !criteria.length) return ids.slice();
+  const [c,...rest]=criteria;
+  const keyed=ids.map(id=>({id, k:critKey(c,id,ids,stat,gmatches,ppw)})).sort((a,b)=> b.k-a.k);
+  const out=[]; let i=0;
+  while(i<keyed.length){
+    let j=i+1; while(j<keyed.length && keyed[j].k===keyed[i].k) j++;
+    const cluster=keyed.slice(i,j).map(x=>x.id);
+    if(cluster.length>1 && rest.length) out.push(...orderPlayers(cluster,rest,stat,gmatches,ppw));
+    else out.push(...cluster);
+    i=j;
+  }
+  return out;
 }
 
 // ---- Gruppe erstellen ----
