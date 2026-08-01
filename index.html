@@ -1304,6 +1304,39 @@ const MODES=[
           {label:"Platz 9–10", a:5, b:5},
         ] };
     } },
+  { id:"quad3", label:"4 × 3er-Gruppe + K.-o.-Platzierung (11–12 Teilnehmer)", min:11, max:12, sizable:false,
+    build(parts){
+      const caps=[ parts.length<=11?2:3, 3,3,3 ];      // Freilos in Gruppe A bei 11 Teilnehmern
+      const G=[[],[],[],[]];
+      let gi=0, idx=0;
+      while(idx<parts.length && idx<12){
+        if(G[gi].length<caps[gi]){ G[gi].push(parts[idx]); idx++; }
+        gi=(gi+1)%4;
+      }
+      const slots=G.map(g=>{ const s=g.slice(); while(s.length<3) s.push(null); return s; });
+      return {
+        groups:[{name:"Gruppe A",slots:slots[0]},{name:"Gruppe B",slots:slots[1]},
+                {name:"Gruppe C",slots:slots[2]},{name:"Gruppe D",slots:slots[3]}],
+        finalGroups:[], placements:[],
+        bracket:[
+          // Plätze 1–4
+          {key:"HF1",  label:"Halbfinale 1",       home:{g:0,place:1}, away:{g:3,place:1}},
+          {key:"HF2",  label:"Halbfinale 2",       home:{g:1,place:1}, away:{g:2,place:1}},
+          {key:"F12",  label:"Finale (Platz 1–2)", home:{m:"HF1",t:"winner"}, away:{m:"HF2",t:"winner"}},
+          {key:"P34",  label:"Platz 3–4",          home:{m:"HF1",t:"loser"},  away:{m:"HF2",t:"loser"}},
+          // Plätze 5–8
+          {key:"S1",   label:"Platz 5–8 · Spiel 1", home:{g:0,place:2}, away:{g:3,place:2}},
+          {key:"S2",   label:"Platz 5–8 · Spiel 2", home:{g:1,place:2}, away:{g:2,place:2}},
+          {key:"P56",  label:"Platz 5–6",           home:{m:"S1",t:"winner"}, away:{m:"S2",t:"winner"}},
+          {key:"P78",  label:"Platz 7–8",           home:{m:"S1",t:"loser"},  away:{m:"S2",t:"loser"}},
+          // Plätze 9–12
+          {key:"T1",   label:"Platz 9–12 · Spiel 1", home:{g:0,place:3}, away:{g:3,place:3}},
+          {key:"T2",   label:"Platz 9–12 · Spiel 2", home:{g:1,place:3}, away:{g:2,place:3}},
+          {key:"P910", label:"Platz 9–10",           home:{m:"T1",t:"winner"}, away:{m:"T2",t:"winner"}},
+          {key:"P1112",label:"Platz 11–12",          home:{m:"T1",t:"loser"},  away:{m:"T2",t:"loser"}},
+        ]
+      };
+    } },
 ];
 function modeById(id){ return MODES.find(m=>m.id===id); }
 
@@ -1326,6 +1359,43 @@ function groupMemberRegs(groupId){
     if(gp.src_group) return {regId:placeReg(gp.src_group, gp.src_place), pos:gp.position};
     return {regId:null, pos:gp.position};
   }).filter(m=>m.regId).sort((a,b)=>a.pos-b.pos);
+}
+
+// Auflösung einer Spielseite: aus Gruppenplatz ODER Sieger/Verlierer eines Spiels
+function sideReg(m, side){
+  const g=m[side+"_src_group"], pl=m[side+"_src_place"];
+  const mm=m[side+"_src_match"], tp=m[side+"_src_type"];
+  if(g){
+    const ready=groupComplete(g);
+    const reg=ready?placeReg(g,pl):null;
+    const gname=(GROUPS.find(x=>x.id===g)||{}).name||"Gruppe";
+    return { reg, ready, isBye: ready && reg===null, srcLabel: pl===1?`Sieger ${gname}`:`Platz ${pl} · ${gname}` };
+  }
+  if(mm){
+    const src=MATCHES.find(x=>x.id===mm);
+    const o=matchOutcome(src);
+    const reg=tp==="winner"?o.winner:o.loser;
+    const label=(src?(src.label||"Spiel"):"Spiel")+(tp==="winner"?" – Sieger":" – Verlierer");
+    return { reg, ready:o.decided, isBye:false, srcLabel:label };
+  }
+  return { reg: m[side+"_reg_id"]||null, ready:true, isBye:false, srcLabel:"—" };
+}
+// Ergebnis eines Spiels: Sieger/Verlierer (auch kampflos bei Freilos)
+function matchOutcome(m){
+  if(!m) return {decided:false,winner:null,loser:null};
+  const H=sideReg(m,"home"), A=sideReg(m,"away");
+  const hr=H.reg, ar=A.reg;
+  if(H.ready && A.ready){
+    if(H.isBye && ar) return {decided:true, winner:ar, loser:null};
+    if(A.isBye && hr) return {decided:true, winner:hr, loser:null};
+    if(H.isBye && A.isBye) return {decided:true, winner:null, loser:null};
+  }
+  if(!hr||!ar) return {decided:false, winner:null, loser:null};
+  if(m.status==="done" && m.home_score!=null && m.away_score!=null && m.home_score!==m.away_score){
+    const homeWon=m.home_score>m.away_score;
+    return {decided:true, winner:homeWon?hr:ar, loser:homeWon?ar:hr};
+  }
+  return {decided:false, winner:null, loser:null};
 }
 function regShort(regId){
   const r=currentRegs.find(x=>x.id===regId); if(!r) return "—";
@@ -1453,19 +1523,15 @@ function renderPlacements(need){
   const pm=MATCHES.filter(m=>m.phase==="placement").sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
   if(!pm.length) return "";
   const rows=pm.map(m=>{
-    const aReady=groupComplete(m.home_src_group), bReady=groupComplete(m.away_src_group);
-    let cell, homeName="—", awayName="—";
-    if(!aReady||!bReady){
-      cell=`<span style="color:var(--muted);font-size:13px">wartet auf Gruppenphase</span>`;
-      m.home_reg_id=null; m.away_reg_id=null;
-    }else{
-      const aReg=placeReg(m.home_src_group,m.home_src_place);
-      const bReg=placeReg(m.away_src_group,m.away_src_place);
-      m.home_reg_id=aReg; m.away_reg_id=bReg;          // im Speicher auflösen (für Ergebnis-Eingabe)
-      if(!aReg && !bReg){ homeName="Freilos"; awayName="Freilos"; cell=`<span style="color:var(--muted)">entfällt</span>`; }
-      else if(!aReg || !bReg){ const w=aReg||bReg; homeName=aReg?regShort(aReg):"Freilos"; awayName=bReg?regShort(bReg):"Freilos"; cell=`<span style="color:var(--ok);font-size:13px">${regShort(w)} — kampflos</span>`; }
-      else { homeName=regShort(aReg); awayName=regShort(bReg); cell=matchSummary(m); }
-    }
+    const H=sideReg(m,"home"), A=sideReg(m,"away");
+    m.home_reg_id=H.reg||null; m.away_reg_id=A.reg||null;   // im Speicher auflösen (für Ergebnis-Eingabe)
+    const nm=(S)=> S.reg?regShort(S.reg):(S.isBye?"Freilos":(S.ready?"—":`<span style="color:var(--muted);font-weight:400">${esc(S.srcLabel)}</span>`));
+    const homeName=nm(H), awayName=nm(A);
+    let cell;
+    if(!H.ready || !A.ready){ cell=`<span style="color:var(--muted);font-size:13px">wartet</span>`; }
+    else if(H.reg && A.reg){ cell=matchSummary(m); }
+    else if(H.reg || A.reg){ const w=H.reg||A.reg; cell=`<span style="color:var(--ok);font-size:13px">${regShort(w)} — kampflos</span>`; }
+    else { cell=`<span style="color:var(--muted)">entfällt</span>`; }
     return `<tr>
       <td style="font-weight:500">${esc(m.label||"")}</td>
       <td><input class="mini court" data-mid="${m.id}" data-f="court" value="${esc(m.court||"")}" placeholder="Court"></td>
@@ -1476,7 +1542,7 @@ function renderPlacements(need){
     </tr>`;
   }).join("");
   return `<div class="group-block">
-    <div class="gb-head"><h3>Platzierungsspiele<span class="gb-sub">Überkreuz nach Gruppenplatz</span></h3></div>
+    <div class="gb-head"><h3>Platzierungs- &amp; K.-o.-Spiele<span class="gb-sub">${need} Gewinnsätze</span></h3></div>
     <div style="overflow-x:auto"><table class="matches">
       <thead><tr><th>Spiel</th><th>Court</th><th>Zeit</th><th style="text-align:right">Heim</th><th style="text-align:center">Ergebnis</th><th>Gast</th></tr></thead>
       <tbody>${rows}</tbody>
@@ -1588,6 +1654,7 @@ function syncModeUi(){
     if(mode.id==="duo4"){ const byes=8-Math.min(seeded,8); msg=`2 Gruppen à 4 · ${Math.min(seeded,8)} Spieler · ${byes} Freilos · Platzierung überkreuz`; }
     else if(mode.id==="trio3"){ const n=Math.min(seeded,9); const byes=9-n; msg=`3 Gruppen à 3 · ${n} Spieler${byes?` · ${byes} Freilos`:""} · Platzierungsrunden 1–3 / 4–6 / 7–9`; }
     else if(mode.id==="duo5"){ const n=Math.min(seeded,10); const byes=10-n; msg=`2 Gruppen à 5 · ${n} Spieler${byes?` · ${byes} Freilos`:""} · Platzierung überkreuz (1–2 … 9–10)`; }
+    else if(mode.id==="quad3"){ const n=Math.min(seeded,12); const byes=12-n; msg=`4 Gruppen à 3 · ${n} Spieler${byes?` · Freilos in Gruppe A`:""} · Halbfinals + Platzierung 1–12`; }
     else msg=`Eine Gruppe mit ${use} Spielern · ${use*(use-1)/2} Spiele`;
   }
   const h=$("#grHint"); h.className="msg-box ok"; h.textContent=msg;
@@ -1685,6 +1752,27 @@ $("#createGroupBtn").addEventListener("click", async ()=>{
         away_src_group:groupIds[1], away_src_place:p.b, sort_order:1000+i
       }));
       await sb.from("matches").insert(prows);
+    }
+
+    if(plan.bracket && plan.bracket.length){
+      const keyToId={};
+      // 1. Durchgang: Spiele mit Gruppenplatz-Quellen anlegen
+      for(let i=0;i<plan.bracket.length;i++){
+        const b=plan.bracket[i];
+        const row={ event_id:currentEvent.id, phase:"placement", label:b.label, sort_order:2000+i, status:"pending" };
+        if(b.home.g!=null){ row.home_src_group=groupIds[b.home.g]; row.home_src_place=b.home.place; }
+        if(b.away.g!=null){ row.away_src_group=groupIds[b.away.g]; row.away_src_place=b.away.place; }
+        const {data:mm,error:me}=await sb.from("matches").insert(row).select().single();
+        if(me) throw me;
+        keyToId[b.key]=mm.id;
+      }
+      // 2. Durchgang: Sieger-/Verlierer-Verknüpfungen setzen
+      for(const b of plan.bracket){
+        const patch={};
+        if(b.home.m){ patch.home_src_match=keyToId[b.home.m]; patch.home_src_type=b.home.t; }
+        if(b.away.m){ patch.away_src_match=keyToId[b.away.m]; patch.away_src_type=b.away.t; }
+        if(Object.keys(patch).length) await sb.from("matches").update(patch).eq("id",keyToId[b.key]);
+      }
     }
 
     $("#groupModal").classList.add("hidden");
