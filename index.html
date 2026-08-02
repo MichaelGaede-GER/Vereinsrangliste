@@ -1418,6 +1418,110 @@ const MODES=[
         {key:"m407",label:"407 · Platz 13–14",home:{m:"m307",t:"winner"}, away:{m:"m308",t:"winner"}},
       ]};
     } },
+  { id:"ko15", label:"15er K.-o. mit Platzierung 1–15 (15 Teilnehmer)", min:15, max:15, sizable:false,
+    build(parts){
+      return { groups:[], finalGroups:[], placements:[], bracket:[
+        {key:"m101",label:"101 · 1. Runde", home:{seed:1},  away:{bye:true}},
+        {key:"m102",label:"102 · 1. Runde", home:{seed:9},  away:{seed:8}},
+        {key:"m103",label:"103 · 1. Runde", home:{seed:5},  away:{seed:12}},
+        {key:"m104",label:"104 · 1. Runde", home:{seed:13}, away:{seed:4}},
+        {key:"m105",label:"105 · 1. Runde", home:{seed:3},  away:{seed:14}},
+        {key:"m106",label:"106 · 1. Runde", home:{seed:11}, away:{seed:6}},
+        {key:"m107",label:"107 · 1. Runde", home:{seed:7},  away:{seed:10}},
+        {key:"m108",label:"108 · 1. Runde", home:{seed:15}, away:{seed:2}},
+        {key:"m201",label:"201 · 2. Runde", home:{m:"m101",t:"winner"}, away:{m:"m102",t:"winner"}},
+        {key:"m202",label:"202 · 2. Runde", home:{m:"m103",t:"winner"}, away:{m:"m104",t:"winner"}},
+        {key:"m203",label:"203 · 2. Runde", home:{m:"m105",t:"winner"}, away:{m:"m106",t:"winner"}},
+        {key:"m204",label:"204 · 2. Runde", home:{m:"m107",t:"winner"}, away:{m:"m108",t:"winner"}},
+        {key:"m205",label:"205 · 2. Runde (9–16)", home:{m:"m101",t:"loser"}, away:{m:"m102",t:"loser"}},
+        {key:"m206",label:"206 · 2. Runde (9–16)", home:{m:"m103",t:"loser"}, away:{m:"m104",t:"loser"}},
+        {key:"m207",label:"207 · 2. Runde (9–16)", home:{m:"m105",t:"loser"}, away:{m:"m106",t:"loser"}},
+        {key:"m208",label:"208 · 2. Runde (9–16)", home:{m:"m107",t:"loser"}, away:{m:"m108",t:"loser"}},
+        {key:"m301",label:"301 · Halbfinale", home:{m:"m201",t:"winner"}, away:{m:"m202",t:"winner"}},
+        {key:"m302",label:"302 · Halbfinale", home:{m:"m203",t:"winner"}, away:{m:"m204",t:"winner"}},
+        {key:"m303",label:"303 · Platz 5–8",  home:{m:"m201",t:"loser"},  away:{m:"m202",t:"loser"}},
+        {key:"m304",label:"304 · Platz 5–8",  home:{m:"m203",t:"loser"},  away:{m:"m204",t:"loser"}},
+        {key:"m305",label:"305 · Platz 9–12", home:{m:"m205",t:"winner"}, away:{m:"m206",t:"winner"}},
+        {key:"m306",label:"306 · Platz 9–12", home:{m:"m207",t:"winner"}, away:{m:"m208",t:"winner"}},
+        {key:"m307",label:"307 · Platz 13–16",home:{m:"m205",t:"loser"},  away:{m:"m206",t:"loser"}},
+        {key:"m308",label:"308 · Platz 13–16",home:{m:"m207",t:"loser"},  away:{m:"m208",t:"loser"}},
+        {key:"m401",label:"401 · Finale (Platz 1–2)", home:{m:"m301",t:"winner"}, away:{m:"m302",t:"winner"}},
+        {key:"m402",label:"402 · Platz 3–4",  home:{m:"m301",t:"loser"},  away:{m:"m302",t:"loser"}},
+        {key:"m403",label:"403 · Platz 5–6",  home:{m:"m303",t:"winner"}, away:{m:"m304",t:"winner"}},
+        {key:"m404",label:"404 · Platz 7–8",  home:{m:"m303",t:"loser"},  away:{m:"m304",t:"loser"}},
+        {key:"m405",label:"405 · Platz 9–10", home:{m:"m305",t:"winner"}, away:{m:"m306",t:"winner"}},
+        {key:"m406",label:"406 · Platz 11–12",home:{m:"m305",t:"loser"},  away:{m:"m306",t:"loser"}},
+        {key:"m407",label:"407 · Platz 13–14",home:{m:"m307",t:"winner"}, away:{m:"m308",t:"winner"}},
+        {key:"m408",label:"408 · Platz 15",   home:{m:"m307",t:"loser"},  away:{m:"m308",t:"loser"}},
+      ]};
+    } },
+  { id:"ko16", label:"16er K.-o. mit Platzierung 1–16 (16 Teilnehmer)", min:16, max:16, sizable:false,
+    build(parts){
+      return { groups:[], finalGroups:[], placements:[], bracket:[
+        {key:"m101",label:"101 · 1. Runde", home:{seed:1},  away:{seed:16}},
+        {key:"m102",label:"102 · 1. Runde", home:{seed:9},  away:{seed:8}},
+        {key:"m103",label:"103 · 1. Runde", home:{seed:5},  away:{seed:12}},
+        {key:"m104",label:"104 · 1. Runde", home:{seed:13}, away:{seed:4}},
+        {key:"m105",label:"105 · 1. Runde", home:{seed:3},  away:{seed:14}},
+        {key:"m106",label:"106 · 1. Runde", home:{seed:11}, away:{seed:6}},
+        {key:"m107",label:"107 · 1. Runde", home:{seed:7},  away:{seed:10}},
+        {key:"m108",label:"108 · 1. Runde", home:{seed:15}, away:{seed:2}},
+        {key:"m201",label:"201 · 2. Runde", home:{m:"m101",t:"winner"}, away:{m:"m102",t:"winner"}},
+        {key:"m202",label:"202 · 2. Runde", home:{m:"m103",t:"winner"}, away:{m:"m104",t:"winner"}},
+        {key:"m203",label:"203 · 2. Runde", home:{m:"m105",t:"winner"}, away:{m:"m106",t:"winner"}},
+        {key:"m204",label:"204 · 2. Runde", home:{m:"m107",t:"winner"}, away:{m:"m108",t:"winner"}},
+        {key:"m205",label:"205 · 2. Runde (9–16)", home:{m:"m101",t:"loser"}, away:{m:"m102",t:"loser"}},
+        {key:"m206",label:"206 · 2. Runde (9–16)", home:{m:"m103",t:"loser"}, away:{m:"m104",t:"loser"}},
+        {key:"m207",label:"207 · 2. Runde (9–16)", home:{m:"m105",t:"loser"}, away:{m:"m106",t:"loser"}},
+        {key:"m208",label:"208 · 2. Runde (9–16)", home:{m:"m107",t:"loser"}, away:{m:"m108",t:"loser"}},
+        {key:"m301",label:"301 · Halbfinale", home:{m:"m201",t:"winner"}, away:{m:"m202",t:"winner"}},
+        {key:"m302",label:"302 · Halbfinale", home:{m:"m203",t:"winner"}, away:{m:"m204",t:"winner"}},
+        {key:"m303",label:"303 · Platz 5–8",  home:{m:"m201",t:"loser"},  away:{m:"m202",t:"loser"}},
+        {key:"m304",label:"304 · Platz 5–8",  home:{m:"m203",t:"loser"},  away:{m:"m204",t:"loser"}},
+        {key:"m305",label:"305 · Platz 9–12", home:{m:"m205",t:"winner"}, away:{m:"m206",t:"winner"}},
+        {key:"m306",label:"306 · Platz 9–12", home:{m:"m207",t:"winner"}, away:{m:"m208",t:"winner"}},
+        {key:"m307",label:"307 · Platz 13–16",home:{m:"m205",t:"loser"},  away:{m:"m206",t:"loser"}},
+        {key:"m308",label:"308 · Platz 13–16",home:{m:"m207",t:"loser"},  away:{m:"m208",t:"loser"}},
+        {key:"m401",label:"401 · Finale (Platz 1–2)", home:{m:"m301",t:"winner"}, away:{m:"m302",t:"winner"}},
+        {key:"m402",label:"402 · Platz 3–4",  home:{m:"m301",t:"loser"},  away:{m:"m302",t:"loser"}},
+        {key:"m403",label:"403 · Platz 5–6",  home:{m:"m303",t:"winner"}, away:{m:"m304",t:"winner"}},
+        {key:"m404",label:"404 · Platz 7–8",  home:{m:"m303",t:"loser"},  away:{m:"m304",t:"loser"}},
+        {key:"m405",label:"405 · Platz 9–10", home:{m:"m305",t:"winner"}, away:{m:"m306",t:"winner"}},
+        {key:"m406",label:"406 · Platz 11–12",home:{m:"m305",t:"loser"},  away:{m:"m306",t:"loser"}},
+        {key:"m407",label:"407 · Platz 13–14",home:{m:"m307",t:"winner"}, away:{m:"m308",t:"winner"}},
+        {key:"m408",label:"408 · Platz 15–16",home:{m:"m307",t:"loser"},  away:{m:"m308",t:"loser"}},
+      ]};
+    } },
+  { id:"grp17", label:"17er Gruppensystem mit Platzierung 1–17 (17 Teilnehmer)", min:17, max:17, sizable:false,
+    build(parts){
+      return { recipe:{
+        matches:[
+          {key:"m101", label:"101 · 1. Runde", sort:1, home:{seed:1}, away:{bye:true}},
+          {key:"m102", label:"102 · 1. Runde", sort:2, home:{seed:2}, away:{seed:17}},
+          {key:"m103", label:"103 · 1. Runde", sort:3, home:{seed:3}, away:{seed:16}},
+          {key:"m104", label:"104 · 1. Runde", sort:4, home:{seed:4}, away:{seed:15}},
+          {key:"m105", label:"105 · 1. Runde", sort:5, home:{seed:5}, away:{seed:14}},
+          {key:"m106", label:"106 · 1. Runde", sort:6, home:{seed:6}, away:{seed:13}},
+          {key:"m107", label:"107 · 1. Runde", sort:7, home:{seed:7}, away:{seed:12}},
+          {key:"m108", label:"108 · 1. Runde", sort:8, home:{seed:8}, away:{seed:11}},
+          {key:"m109", label:"109 · 1. Runde", sort:9, home:{seed:9}, away:{seed:10}},
+          {key:"p1011", label:"Platz 10–11", sort:910, home:{g:"gD",place:1}, away:{g:"gE",place:1}},
+          {key:"p1213", label:"Platz 12–13", sort:911, home:{g:"gD",place:2}, away:{g:"gE",place:2}},
+          {key:"p1415", label:"Platz 14–15", sort:912, home:{g:"gD",place:3}, away:{g:"gE",place:3}},
+          {key:"p1617", label:"Platz 16–17", sort:913, home:{g:"gD",place:4}, away:{g:"gE",place:4}},
+        ],
+        groups:[
+          {key:"gA", name:"Gruppe A", sort:0, sources:[{m:"m101",t:"winner"},{m:"m106",t:"winner"},{m:"m107",t:"winner"}]},
+          {key:"gB", name:"Gruppe B", sort:1, sources:[{m:"m102",t:"winner"},{m:"m105",t:"winner"},{m:"m108",t:"winner"}]},
+          {key:"gC", name:"Gruppe C", sort:2, sources:[{m:"m103",t:"winner"},{m:"m104",t:"winner"},{m:"m109",t:"winner"}]},
+          {key:"gD", name:"Gruppe D", sort:3, sources:[{m:"m102",t:"loser"},{m:"m104",t:"loser"},{m:"m106",t:"loser"},{m:"m108",t:"loser"}]},
+          {key:"gE", name:"Gruppe E", sort:4, sources:[{m:"m103",t:"loser"},{m:"m105",t:"loser"},{m:"m107",t:"loser"},{m:"m109",t:"loser"}]},
+          {key:"pABC1", name:"Platz 1–3", stage:"final", sort:10, sources:[{g:"gA",place:1},{g:"gB",place:1},{g:"gC",place:1}]},
+          {key:"pABC2", name:"Platz 4–6", stage:"final", sort:11, sources:[{g:"gA",place:2},{g:"gB",place:2},{g:"gC",place:2}]},
+          {key:"pABC3", name:"Platz 7–9", stage:"final", sort:12, sources:[{g:"gA",place:3},{g:"gB",place:3},{g:"gC",place:3}]},
+        ]
+      }};
+    } },
 ];
 function modeById(id){ return MODES.find(m=>m.id===id); }
 
@@ -1438,9 +1542,11 @@ function groupMemberRegs(groupId){
   return GPLAYERS.filter(gp=>gp.group_id===groupId).map(gp=>{
     if(gp.registration_id) return {regId:gp.registration_id, pos:gp.position};
     if(gp.src_group) return {regId:placeReg(gp.src_group, gp.src_place), pos:gp.position};
+    if(gp.src_match){ const o=matchOutcome(MATCHES.find(x=>x.id===gp.src_match)); return {regId: gp.src_type==="winner"?o.winner:o.loser, pos:gp.position}; }
     return {regId:null, pos:gp.position};
   }).filter(m=>m.regId).sort((a,b)=>a.pos-b.pos);
 }
+function groupIsSourced(groupId){ return GPLAYERS.some(gp=>gp.group_id===groupId && (gp.src_group||gp.src_match)); }
 
 // Auflösung einer Spielseite: aus Gruppenplatz ODER Sieger/Verlierer eines Spiels
 function sideReg(m, side){
@@ -1504,9 +1610,9 @@ function renderGroups(){
   $("#groupsEmpty").classList.toggle("hidden", hasT);
   if($("#resetTournBtn")) $("#resetTournBtn").classList.toggle("hidden", !hasT);
   const need=currentEvent.win_sets||3;
-  let html = GROUPS.filter(g=>g.stage!=="final").map(g=> renderGroupBlock(g,need)).join("");
-  html += GROUPS.filter(g=>g.stage==="final").map(g=> renderFinalBlock(g,need)).join("");
-  html += renderPlacements(need);
+  let html = renderStandalone(need, true);
+  html += GROUPS.map(g=> groupIsSourced(g.id) ? renderFinalBlock(g,need) : renderGroupBlock(g,need)).join("");
+  html += renderStandalone(need, false);
   $("#groupsContainer").innerHTML = html;
 
   $("#groupsContainer").querySelectorAll("[data-delgroup]").forEach(b=>b.addEventListener("click",()=>deleteGroup(b.dataset.delgroup)));
@@ -1560,30 +1666,25 @@ function renderGroupBlock(g,need){
 }
 
 function renderFinalBlock(g,need){
-  const gps=GPLAYERS.filter(x=>x.group_id===g.id).sort((a,b)=>a.position-b.position);
-  const srcIds=[...new Set(gps.map(x=>x.src_group).filter(Boolean))];
-  const ready=srcIds.length>0 && srcIds.every(id=>groupComplete(id));
+  const members=groupMemberRegs(g.id);
+  const ready = members.length>0 && members.length === (g.size||members.length);
   const matches=MATCHES.filter(m=>m.group_id===g.id).sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
-  matches.forEach(m=>{
-    m.home_reg_id = ready?placeReg(m.home_src_group,m.home_src_place):null;
-    m.away_reg_id = ready?placeReg(m.away_src_group,m.away_src_place):null;
-  });
   const rows=matches.map(m=>{
-    let cell,hn="—",an="—";
-    if(!ready){ cell=`<span style="color:var(--muted);font-size:13px">wartet auf Gruppenphase</span>`; }
-    else{
-      const a=m.home_reg_id, b=m.away_reg_id;
-      if(!a&&!b){ cell=`<span style="color:var(--muted)">entfällt</span>`; }
-      else if(!a||!b){ const w=a||b; hn=a?regShort(a):"Freilos"; an=b?regShort(b):"Freilos"; cell=`<span style="color:var(--ok);font-size:13px">${regShort(w)} — kampflos</span>`; }
-      else { hn=regShort(a); an=regShort(b); cell=matchSummary(m); }
-    }
+    const H=sideReg(m,"home"), A=sideReg(m,"away");
+    m.home_reg_id=H.reg||null; m.away_reg_id=A.reg||null;
+    const nm=(S)=> S.reg?regShort(S.reg):((S.isBye||S.empty)?"Freilos":(S.ready?"—":`<span style="color:var(--muted);font-weight:400">${esc(S.srcLabel)}</span>`));
+    let cell;
+    if(!H.ready || !A.ready){ cell=`<span style="color:var(--muted);font-size:13px">wartet</span>`; }
+    else if(H.reg && A.reg){ cell=matchSummary(m); }
+    else if(H.reg || A.reg){ const w=H.reg||A.reg; cell=`<span style="color:var(--ok);font-size:13px">${regShort(w)} — kampflos</span>`; }
+    else { cell=`<span style="color:var(--muted)">entfällt</span>`; }
     return `<tr>
       <td class="mno">${m.match_no??""}</td>
       <td><input class="mini court" data-mid="${m.id}" data-f="court" value="${esc(m.court||"")}" placeholder="Court"></td>
       <td><input class="mini time" type="time" data-mid="${m.id}" data-f="time" value="${m.scheduled_time?m.scheduled_time.slice(0,5):""}"></td>
-      <td class="who" style="text-align:right">${hn}</td>
+      <td class="who" style="text-align:right">${nm(H)}</td>
       <td style="text-align:center;white-space:nowrap">${cell}</td>
-      <td class="who">${an}</td>
+      <td class="who">${nm(A)}</td>
     </tr>`;
   }).join("");
   let srows;
@@ -1591,10 +1692,10 @@ function renderFinalBlock(g,need){
     const st=computeStandings(g.id);
     srows=st.map((s,i)=>`<tr class="${i===0?"top":""}"><td class="pos">${i+1}</td><td>${regShort(s.regId)}</td><td class="st">${s.played}</td><td class="st">${s.wins}</td><td class="st">${s.losses}</td><td class="st mono">${s.points}</td><td class="st mono">${s.setsWon}:${s.setsLost}</td><td class="st mono">${s.ballsWon}:${s.ballsLost}</td></tr>`).join("");
   } else {
-    srows=`<tr><td colspan="8" style="color:var(--muted);text-align:center;padding:16px">Teilnehmer stehen nach der Gruppenphase fest.</td></tr>`;
+    srows=`<tr><td colspan="8" style="color:var(--muted);text-align:center;padding:16px">Teilnehmer stehen nach der Vorrunde fest.</td></tr>`;
   }
   return `<div class="group-block" data-gid="${g.id}">
-    <div class="gb-head"><h3>${esc(g.name)}<span class="gb-sub">Platzierungsrunde · ${need} Gewinnsätze</span></h3></div>
+    <div class="gb-head"><h3>${esc(g.name)}<span class="gb-sub">${g.size||members.length} Spieler · ${need} Gewinnsätze</span></h3></div>
     <div class="gb-section-title">Spielplan</div>
     <div style="overflow-x:auto"><table class="matches"><thead><tr><th>Nr</th><th>Court</th><th>Zeit</th><th style="text-align:right">Heim</th><th style="text-align:center">Ergebnis</th><th>Gast</th></tr></thead><tbody>${rows}</tbody></table></div>
     <div class="gb-section-title">Tabelle</div>
@@ -1602,8 +1703,9 @@ function renderFinalBlock(g,need){
   </div>`;
 }
 
-function renderPlacements(need){
-  const pm=MATCHES.filter(m=>m.phase==="placement").sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
+function renderStandalone(need, before){
+  const pm=MATCHES.filter(m=>m.phase==="placement" && (before ? (m.sort_order||0)<100 : (m.sort_order||0)>=100))
+    .sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
   if(!pm.length) return "";
   const rows=pm.map(m=>{
     const H=sideReg(m,"home"), A=sideReg(m,"away");
@@ -1625,7 +1727,7 @@ function renderPlacements(need){
     </tr>`;
   }).join("");
   return `<div class="group-block">
-    <div class="gb-head"><h3>Platzierungs- &amp; K.-o.-Spiele<span class="gb-sub">${need} Gewinnsätze</span></h3></div>
+    <div class="gb-head"><h3>${before?"1. Runde":"Platzierungs- &amp; K.-o.-Spiele"}<span class="gb-sub">${need} Gewinnsätze</span></h3></div>
     <div style="overflow-x:auto"><table class="matches">
       <thead><tr><th>Spiel</th><th>Court</th><th>Zeit</th><th style="text-align:right">Heim</th><th style="text-align:center">Ergebnis</th><th>Gast</th></tr></thead>
       <tbody>${rows}</tbody>
@@ -1740,6 +1842,9 @@ function syncModeUi(){
     else if(mode.id==="quad3"){ const n=Math.min(seeded,12); const byes=12-n; msg=`4 Gruppen à 3 · ${n} Spieler${byes?` · Freilos in Gruppe A`:""} · Halbfinals + Platzierung 1–12`; }
     else if(mode.id==="ko13"){ msg=`16er-K.-o.-Raster · 13 Spieler · Freilose für Setz. 1–3 · jeder Platz 1–13 wird ausgespielt`; }
     else if(mode.id==="ko14"){ msg=`16er-K.-o.-Raster · 14 Spieler · Freilose für Setz. 1–2 · jeder Platz 1–14 wird ausgespielt`; }
+    else if(mode.id==="ko15"){ msg=`16er-K.-o.-Raster · 15 Spieler · Freilos für Setz. 1 · jeder Platz 1–15 wird ausgespielt`; }
+    else if(mode.id==="ko16"){ msg=`16er-K.-o.-Raster · 16 Spieler · keine Freilose · jeder Platz 1–16 wird ausgespielt`; }
+    else if(mode.id==="grp17"){ msg=`17 Spieler · 1. Runde → Gruppen A–C (Sieger) & D–E (Verlierer) → Platzierung 1–17`; }
     else msg=`Eine Gruppe mit ${use} Spielern · ${use*(use-1)/2} Spiele`;
   }
   const h=$("#grHint"); h.className="msg-box ok"; h.textContent=msg;
@@ -1783,6 +1888,15 @@ $("#createGroupBtn").addEventListener("click", async ()=>{
     await sb.from("events").update({ mode:mode.id, win_sets:parseInt($("#grWinSets").value)||3 }).eq("id",currentEvent.id);
     currentEvent.mode=mode.id;
     currentEvent.win_sets=parseInt($("#grWinSets").value)||3;
+
+    if(plan.recipe){
+      await buildRecipe(plan.recipe, parts);
+      $("#groupModal").classList.add("hidden");
+      await loadTournament();
+      setSubtab("plan");
+      toast("Turnier erstellt.");
+      return;
+    }
 
     const groupIds=[];
     for(let gi=0; gi<plan.groups.length; gi++){
@@ -1879,6 +1993,64 @@ async function deleteGroup(id){
   await loadTournament(); toast("Gruppe gelöscht.");
 }
 
+// Universeller Aufbau aus einem "Rezept": Matches + Gruppen mit Quellen
+// srcSpec: {seed:N} | {bye:true} | {m:key,t:'winner'|'loser'} | {g:groupKey,place:N}
+async function buildRecipe(recipe, parts){
+  const gid={}, mid={};
+  // Phase 1: Hüllen anlegen (für IDs)
+  for(const g of recipe.groups||[]){
+    const {data,error}=await sb.from("groups").insert({
+      event_id:currentEvent.id, name:g.name, format:"round_robin",
+      size:g.sources.length, stage:g.stage||"prelim", sort_order:g.sort||0
+    }).select().single();
+    if(error) throw error; gid[g.key]=data.id;
+  }
+  for(const m of recipe.matches||[]){
+    const {data,error}=await sb.from("matches").insert({
+      event_id:currentEvent.id, phase:"placement", label:m.label, sort_order:m.sort||0, status:"pending"
+    }).select().single();
+    if(error) throw error; mid[m.key]=data.id;
+  }
+  // Quelle -> Feldwerte für eine Spielseite
+  const sideFields=(spec, side)=>{
+    const f={};
+    if(!spec) return f;
+    if(spec.seed!=null) f[side+"_reg_id"]= parts[spec.seed-1]?parts[spec.seed-1].id:null;
+    else if(spec.bye){ /* leer */ }
+    else if(spec.m){ f[side+"_src_match"]=mid[spec.m]; f[side+"_src_type"]=spec.t; }
+    else if(spec.g){ f[side+"_src_group"]=gid[spec.g]; f[side+"_src_place"]=spec.place; }
+    return f;
+  };
+  // Phase 2: Match-Quellen setzen
+  for(const m of recipe.matches||[]){
+    const patch={ ...sideFields(m.home,"home"), ...sideFields(m.away,"away") };
+    if(Object.keys(patch).length) await sb.from("matches").update(patch).eq("id",mid[m.key]);
+  }
+  // Phase 2: Gruppen-Mitglieder + Round-Robin-Spiele
+  for(const g of recipe.groups||[]){
+    const gpRows=g.sources.map((s,i)=>{
+      const row={ group_id:gid[g.key], position:i+1 };
+      if(s.seed!=null) row.registration_id = parts[s.seed-1]?parts[s.seed-1].id:null;
+      else if(s.m){ row.src_match=mid[s.m]; row.src_type=s.t; }
+      else if(s.g){ row.src_group=gid[s.g]; row.src_place=s.place; }
+      return row;
+    });
+    if(gpRows.length) await sb.from("group_players").insert(gpRows);
+
+    const rounds=roundRobin(g.sources.length);
+    let no=1; const rows=[];
+    rounds.forEach((rd,ri)=> rd.forEach(([a,b])=>{
+      const sa=g.sources[a-1], sb2=g.sources[b-1];
+      const bye = (sa&&sa.bye) || (sb2&&sb2.bye);
+      rows.push({ event_id:currentEvent.id, group_id:gid[g.key], phase:"group", match_no:no, round:ri+1,
+        sort_order:no, status: bye?"done":"pending", is_bye: !!bye,
+        ...sideFields(sa,"home"), ...sideFields(sb2,"away") });
+      no++;
+    }));
+    if(rows.length) await sb.from("matches").insert(rows);
+  }
+}
+
 function regFull(regId){
   const r=currentRegs.find(x=>x.id===regId); if(!r) return "—";
   if(r.player_id){ const p=PLAYERS.find(x=>x.id===r.player_id); return p?`${esc(p.first_name)} ${esc(p.last_name)}`:"(gelöscht)"; }
@@ -1939,7 +2111,7 @@ $("#saveResultBtn").addEventListener("click", async ()=>{
   const need=currentEvent.win_sets||3;
   const done=t.hs>=need||t.as>=need;
   const patch={ sets: sets.length?sets:null, home_score:t.hs, away_score:t.as, status: done?"done":"pending" };
-  if(m && (m.phase==="placement"||m.phase==="final")){ patch.home_reg_id=m.home_reg_id||null; patch.away_reg_id=m.away_reg_id||null; }
+  if(m && (m.home_reg_id||m.away_reg_id)){ patch.home_reg_id=m.home_reg_id||null; patch.away_reg_id=m.away_reg_id||null; }
   const {error}=await sb.from("matches").update(patch).eq("id",resultMid);
   if(error){ toast(error.message,true); return; }
   $("#resultModal").classList.add("hidden");
