@@ -216,7 +216,11 @@
   table.matches th{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.03em;
     color:var(--muted);text-align:left;padding:8px 10px;border-bottom:1px solid var(--border)}
   table.matches td{padding:7px 10px;border-bottom:1px solid var(--border);vertical-align:middle;font-size:14px}
+  table.matches tbody tr:nth-child(odd){background:#F1F3EE}
+  table.matches tbody tr:hover{background:#E7ECE4}
   table.matches tr:last-child td{border-bottom:none}
+  table.matches tr.byerow{background:#F4F0E7 !important;color:var(--muted)}
+  table.matches tr.byerow .who{color:var(--muted)}
   table.matches .mno{font-family:var(--f-mono);color:var(--muted);font-size:12px;width:34px}
   table.matches .who{white-space:nowrap}
   table.matches .vs{color:var(--muted);text-align:center;width:24px}
@@ -288,6 +292,7 @@
   <nav class="tabs">
     <button class="tab active" data-tab="events">Events</button>
     <button class="tab" data-tab="players">Spieler</button>
+    <button class="tab" data-tab="ranking">Rangliste</button>
     <button class="tab" data-tab="settings">Einstellungen</button>
   </nav>
 
@@ -342,9 +347,10 @@
       </div>
       <div class="card">
         <table>
-          <thead><tr><th>Name</th><th>Status</th><th class="hide-sm">Quelle</th><th class="hide-sm">Angemeldet</th><th class="actions-cell">Aktion</th></tr></thead>
+          <thead><tr><th>Name</th><th>Status</th><th>Gebühr</th><th>Zahlung</th><th class="actions-cell">Aktion</th></tr></thead>
           <tbody id="regBody"></tbody>
         </table>
+        <div id="regIncome" style="padding:10px 4px 2px;font-size:13px;color:var(--muted)"></div>
         <div id="regEmpty" class="empty hidden">
           <strong>Noch keine Anmeldungen</strong>
           Teile den Anmeldelink oder füge Spieler manuell hinzu.
@@ -380,8 +386,11 @@
       <div id="subSpielplan" class="hidden">
         <div class="page-head" style="margin-bottom:14px">
           <div style="display:flex;align-items:center;gap:12px"><h2 style="font-size:18px">Spielplan</h2></div>
-          <div style="display:flex;gap:8px">
+          <div style="display:flex;gap:8px;align-items:center">
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);cursor:pointer;margin-right:4px">
+              <input type="checkbox" id="hideByes" style="cursor:pointer"> Freilos-Spiele ausblenden</label>
             <button class="btn btn-sm" id="openBoardBtn">Live-Anzeige öffnen ↗</button>
+            <button class="btn btn-sm" id="placementBtn">Endplatzierung</button>
             <button class="btn btn-sm hidden" id="resetTournBtn">Turnier zurücksetzen</button>
             <button class="btn btn-primary btn-sm" id="addGroupBtn">Turnier aufsetzen</button>
           </div>
@@ -421,6 +430,15 @@
   </main>
 
   <!-- ================= EINSTELLUNGEN ================= -->
+  <main id="tab-ranking" class="hidden">
+    <div class="page-head">
+      <h2>Vereinsrangliste</h2>
+      <button class="btn btn-sm" id="refreshRankingBtn">Aktualisieren</button>
+    </div>
+    <p class="hint">Beste 4 Ergebnisse der letzten 10 ranglistenrelevanten Turniere. Spieler ohne Teilnahme in diesen 10 Turnieren werden nicht geführt.</p>
+    <div id="rankingContainer"></div>
+  </main>
+
   <main id="tab-settings" class="hidden">
     <div class="page-head"><h2>Einstellungen</h2></div>
     <div class="settings-grid">
@@ -433,6 +451,14 @@
           <div><label class="lbl">Farbe</label><input id="newStatusColor" type="color" value="#005CC8"></div>
           <div style="max-width:100px"><label class="lbl">Reihenfolge</label><input id="newStatusOrder" class="field mono" type="number" value="0"></div>
           <button class="btn btn-primary" id="addStatusBtn">Hinzufügen</button>
+        </div>
+        <div class="row" style="align-items:flex-end;margin-top:14px;border-top:1px solid var(--border);padding-top:14px">
+          <div style="max-width:200px"><label class="lbl">Gastgebühr (€)</label><input id="guestFee" class="field mono" type="number" step="0.50" min="0" placeholder="0"></div>
+          <button class="btn btn-primary" id="saveGuestFeeBtn">Gastgebühr speichern</button>
+        </div>
+        <div class="row" style="align-items:flex-end;margin-top:14px">
+          <div class="grow"><label class="lbl">Kassenwart-E-Mail (für Endabrechnung)</label><input id="treasurerEmail" class="field" type="email" placeholder="kassenwart@verein.de"></div>
+          <button class="btn btn-primary" id="saveTreasurerBtn">Speichern</button>
         </div>
       </div>
       <div class="panel">
@@ -534,6 +560,13 @@
       <div id="resMatchup" style="display:flex;justify-content:space-between;align-items:center;gap:10px;font-weight:600;margin-bottom:18px"></div>
       <div id="setRows"></div>
       <div id="setTally" style="text-align:center;margin-top:16px;font-family:var(--f-body);font-weight:600"></div>
+      <div id="retireRow" style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Aufgabe wegen Verletzung — der Gegner gewinnt kampflos, der verletzte Spieler wird als Freilos weitergeschoben und am Turnierende zuletzt platziert.</div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-sm" id="retireHomeBtn" style="flex:1"></button>
+          <button class="btn btn-sm" id="retireAwayBtn" style="flex:1"></button>
+        </div>
+      </div>
     </div>
     <div class="modal-foot">
       <button class="btn btn-danger" id="clearResultBtn">Leeren</button>
@@ -545,6 +578,22 @@
 </div>
 
 <div id="toast"></div>
+
+<div id="placementModal" class="overlay hidden">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-head"><h3>Endplatzierung</h3><button class="x-close" data-close-placement>×</button></div>
+    <div class="modal-body">
+      <div id="placementInfo" style="margin-bottom:10px;color:var(--muted);font-size:13px"></div>
+      <div id="placementList" style="max-height:52vh;overflow:auto"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" id="emailPlacementBtn">Per E-Mail an Kassenwart</button>
+      <span style="flex:1"></span>
+      <button class="btn" data-close-placement>Schließen</button>
+      <button class="btn btn-primary" id="savePlacementBtn">Für Rangliste speichern</button>
+    </div>
+  </div>
+</div>
 
 <!-- PLAYER MODAL -->
 <div id="playerModal" class="overlay hidden">
@@ -591,6 +640,7 @@
       <div class="row" style="margin-top:14px">
         <div style="flex:0 0 auto"><label class="lbl">Farbe</label><input id="sColor" type="color"></div>
         <div><label class="lbl">Reihenfolge</label><input id="sOrder" class="field mono" type="number"></div>
+        <div><label class="lbl">Teilnahmegebühr (€)</label><input id="sFee" class="field mono" type="number" step="0.50" min="0" placeholder="0"></div>
       </div>
     </div>
     <div class="modal-foot">
@@ -663,6 +713,10 @@ let seedList = [], pendingProposal = null;
 let GROUPS = [], GPLAYERS = [], MATCHES = [];
 let STANDINGS = { order:["match_points","h2h","sets","balls"], pointsPerWin:2 };
 let COURTS = ["1","2","3","4","5","6"];
+let SHOW_BYES = true;
+let GUEST_FEE = 0;
+let TREASURER_EMAIL = "";
+let RETIRED = new Set();          // regIds, die aufgegeben haben (aktuelles Event)
 const CRIT_LABELS = { match_points:"Spielpunkte", h2h:"Direkter Vergleich", sets:"Sätze", balls:"Bälle" };
 
 if(window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc =
@@ -732,7 +786,9 @@ document.querySelectorAll(".tab").forEach(t=>{
     const n=t.dataset.tab;
     $("#tab-events").classList.toggle("hidden", n!=="events");
     $("#tab-players").classList.toggle("hidden", n!=="players");
+    $("#tab-ranking").classList.toggle("hidden", n!=="ranking");
     $("#tab-settings").classList.toggle("hidden", n!=="settings");
+    if(n==="ranking") renderRangliste();
   });
 });
 
@@ -752,7 +808,9 @@ function renderStatusList(){
   if(!STATUSES.length){ box.innerHTML='<p class="hint" style="margin:0">Noch keine Status angelegt.</p>'; return; }
   box.innerHTML=STATUSES.map(s=>`<div class="status-item">
     <span class="swatch" style="background:${s.color}"></span>
-    <span class="sname">${esc(s.name)}</span><span class="sord mono">#${s.sort_order}</span>
+    <span class="sname">${esc(s.name)}</span>
+    <span class="sord mono">${Number(s.fee||0).toLocaleString("de-DE",{minimumFractionDigits:2})} €</span>
+    <span class="sord mono">#${s.sort_order}</span>
     <button class="btn btn-ghost btn-sm" data-edit-status="${s.id}">Bearbeiten</button></div>`).join("");
   box.querySelectorAll("[data-edit-status]").forEach(b=>b.addEventListener("click",()=>openStatusModal(b.dataset.editStatus)));
 }
@@ -764,13 +822,13 @@ $("#addStatusBtn").addEventListener("click", async ()=>{
   $("#newStatusName").value=""; await loadStatuses(); toast("Status hinzugefügt.");
 });
 function openStatusModal(id){ const s=statusById(id); if(!s) return;
-  $("#sId").value=s.id; $("#sName").value=s.name; $("#sColor").value=s.color; $("#sOrder").value=s.sort_order;
+  $("#sId").value=s.id; $("#sName").value=s.name; $("#sColor").value=s.color; $("#sOrder").value=s.sort_order; $("#sFee").value=s.fee??0;
   $("#statusModal").classList.remove("hidden"); }
 document.querySelectorAll("[data-close-status]").forEach(b=>b.addEventListener("click",()=>$("#statusModal").classList.add("hidden")));
 $("#saveStatusBtn").addEventListener("click", async ()=>{
   const id=$("#sId").value, name=$("#sName").value.trim();
   if(!name){ toast("Name darf nicht leer sein.",true); return; }
-  const {error}=await sb.from("membership_status").update({name,color:$("#sColor").value,sort_order:parseInt($("#sOrder").value)||0}).eq("id",id);
+  const {error}=await sb.from("membership_status").update({name,color:$("#sColor").value,sort_order:parseInt($("#sOrder").value)||0,fee:parseFloat($("#sFee").value)||0}).eq("id",id);
   if(error){ toast(error.message,true); return; }
   $("#statusModal").classList.add("hidden"); await loadStatuses(); renderPlayers(); toast("Status gespeichert.");
 });
@@ -952,6 +1010,7 @@ async function openEvent(id){
   // Anmeldungen laden
   const {data:regs}=await sb.from("registrations").select("*").eq("event_id",id).order("registered_at");
   currentRegs=(regs||[]).filter(r=>r.status!=="withdrawn");
+  RETIRED = new Set(currentRegs.filter(r=>r.retired_at).map(r=>r.id));
   const cnt=currentRegs.length;
 
   $("#dInfo").innerHTML=`
@@ -969,6 +1028,12 @@ async function openEvent(id){
   await loadTournament();
   setSubtab("reg");
 }
+function feeForReg(r){
+  if(r.player_id){ const p=PLAYERS.find(x=>x.id===r.player_id); const s=p?statusById(p.membership_status_id):null; return Number(s?.fee||0); }
+  return Number(GUEST_FEE||0);
+}
+function eur(n){ return Number(n||0).toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})+" €"; }
+
 function renderRegs(){
   $("#regCount").textContent=currentRegs.length;
   $("#regEmpty").classList.toggle("hidden", currentRegs.length>0);
@@ -986,14 +1051,33 @@ function renderRegs(){
       actions=`<button class="btn btn-sm" data-conv="${r.id}">Als Spieler übernehmen</button>
                <button class="btn btn-danger btn-sm" data-rmreg="${r.id}">Entfernen</button>`;
     }
-    const src=r.source==="self"?"Selbst angemeldet":"Manuell";
-    return `<tr><td class="pname">${name}</td><td>${badge}</td>
-      <td class="hide-sm" style="color:var(--muted);font-size:13px">${src}</td>
-      <td class="hide-sm num">${fmtDate(r.registered_at.slice(0,10))}</td>
+    const fee=feeForReg(r);
+    const pm=r.payment_method||"";
+    const pay=`<select class="mini paysel" data-payreg="${r.id}" style="width:auto">
+        <option value=""${pm===""?" selected":""}>offen</option>
+        <option value="cash"${pm==="cash"?" selected":""}>bar</option>
+        <option value="account"${pm==="account"?" selected":""}>Konto</option>
+      </select>`;
+    const retired = r.retired_at?` <span class="badge" style="background:#FBEAE9;color:#C4362F;border-color:#f3c9c6">aufgegeben</span>`:"";
+    return `<tr><td class="pname">${name}${retired}</td><td>${badge}</td>
+      <td class="num mono">${eur(fee)}</td>
+      <td>${pay}</td>
       <td class="actions-cell">${actions}</td></tr>`;
   }).join("");
+  const total=currentRegs.reduce((a,r)=>a+feeForReg(r),0);
+  const cash=currentRegs.filter(r=>r.payment_method==="cash").reduce((a,r)=>a+feeForReg(r),0);
+  const acct=currentRegs.filter(r=>r.payment_method==="account").reduce((a,r)=>a+feeForReg(r),0);
+  const open=total-cash-acct;
+  $("#regIncome").innerHTML = currentRegs.length? `Einnahmen gesamt: <strong>${eur(total)}</strong> · bar ${eur(cash)} · Konto ${eur(acct)} · offen ${eur(open)}` : "";
   $("#regBody").querySelectorAll("[data-rmreg]").forEach(b=>b.addEventListener("click",()=>removeReg(b.dataset.rmreg)));
   $("#regBody").querySelectorAll("[data-conv]").forEach(b=>b.addEventListener("click",()=>convertGuest(b.dataset.conv)));
+  $("#regBody").querySelectorAll("[data-payreg]").forEach(sel=>sel.addEventListener("change",()=>setPayment(sel.dataset.payreg, sel.value)));
+}
+async function setPayment(regId, method){
+  const patch={ payment_method: method||null };
+  const r=currentRegs.find(x=>x.id===regId); if(r) r.payment_method=method||null;
+  const {error}=await sb.from("registrations").update(patch).eq("id",regId);
+  if(error) toast(error.message,true); else renderRegs();
 }
 async function removeReg(id){
   if(!confirm("Anmeldung entfernen?")) return;
@@ -1046,6 +1130,14 @@ async function loadSettings(){
   const {data:cc}=await sb.from("app_settings").select("value").eq("key","courts").maybeSingle();
   if(cc?.value && Array.isArray(cc.value) && cc.value.length) COURTS=cc.value.map(String);
   renderCourtsList();
+
+  const {data:gf}=await sb.from("app_settings").select("value").eq("key","guest_fee").maybeSingle();
+  GUEST_FEE = Number(gf?.value)||0;
+  if($("#guestFee")) $("#guestFee").value = GUEST_FEE;
+
+  const {data:te}=await sb.from("app_settings").select("value").eq("key","treasurer_email").maybeSingle();
+  TREASURER_EMAIL = te?.value||"";
+  if($("#treasurerEmail")) $("#treasurerEmail").value = TREASURER_EMAIL;
 }
 function renderCourtsList(){
   const el=$("#courtsList"); if(!el) return;
@@ -1090,6 +1182,19 @@ $("#addCourtBtn").addEventListener("click", ()=>{
 });
 $("#newCourtName").addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); $("#addCourtBtn").click(); } });
 $("#saveCourtsBtn").addEventListener("click", saveCourts);
+$("#saveGuestFeeBtn").addEventListener("click", async ()=>{
+  GUEST_FEE = parseFloat($("#guestFee").value)||0;
+  const {error}=await sb.from("app_settings").upsert({key:"guest_fee",value:GUEST_FEE,updated_at:new Date().toISOString()});
+  if(error){ toast(error.message,true); return; }
+  toast("Gastgebühr gespeichert.");
+  if(currentEvent) renderRegs();
+});
+$("#saveTreasurerBtn").addEventListener("click", async ()=>{
+  TREASURER_EMAIL = $("#treasurerEmail").value.trim();
+  const {error}=await sb.from("app_settings").upsert({key:"treasurer_email",value:TREASURER_EMAIL,updated_at:new Date().toISOString()});
+  if(error){ toast(error.message,true); return; }
+  toast("Kassenwart-E-Mail gespeichert.");
+});
 function renderRankingPreview(url){
   $("#rankingLinkPreview").innerHTML=url?`<a href="${esc(url)}" target="_blank" rel="noopener" style="font-size:13px">PDF öffnen ↗</a>`:"";
 }
@@ -1814,17 +1919,20 @@ function matchOutcome(m){
   if(!m) return {decided:false,winner:null,loser:null};
   const H=sideReg(m,"home"), A=sideReg(m,"away");
   const hr=H.reg, ar=A.reg;
-  const eH=H.isBye||H.empty, eA=A.isBye||A.empty;
-  if(H.ready && A.ready){
-    if(eH && ar) return {decided:true, winner:ar, loser:null};
-    if(eA && hr) return {decided:true, winner:hr, loser:null};
-    if(eH && eA) return {decided:true, winner:null, loser:null};
-  }
-  if(!hr||!ar) return {decided:false, winner:null, loser:null};
-  if(m.status==="done" && m.home_score!=null && m.away_score!=null && m.home_score!==m.away_score){
+  // 1. Echtes gespieltes Ergebnis zählt immer zuerst
+  if(m.status==="done" && m.home_score!=null && m.away_score!=null && m.home_score!==m.away_score && hr && ar){
     const homeWon=m.home_score>m.away_score;
     return {decided:true, winner:homeWon?hr:ar, loser:homeWon?ar:hr};
   }
+  // 2. Freilos oder Aufgabe (verletzter Spieler wird als Freilos weitergeschoben): Gegner gewinnt kampflos
+  const eH = H.isBye||H.empty || (hr && RETIRED.has(hr));
+  const eA = A.isBye||A.empty || (ar && RETIRED.has(ar));
+  if(H.ready && A.ready){
+    if(eH && ar && !eA) return {decided:true, winner:ar, loser:null};
+    if(eA && hr && !eH) return {decided:true, winner:hr, loser:null};
+    if(eH && eA) return {decided:true, winner:null, loser:null};
+  }
+  if(!hr||!ar) return {decided:false, winner:null, loser:null};
   return {decided:false, winner:null, loser:null};
 }
 function courtCell(m){
@@ -1839,6 +1947,15 @@ function statusCell(m){
     <option value="prep"${s==="prep"?" selected":""}>Vorbereitung</option>
     <option value="court"${s==="court"?" selected":""}>Auf Court</option>
   </select></td>`;
+}
+function timeCell(m){
+  return `<td><input class="mini time" type="time" data-mid="${m.id}" data-f="time" value="${m.scheduled_time?m.scheduled_time.slice(0,5):""}"></td>`;
+}
+// Court/Status/Zeit — bei Freilos (kein echtes Spiel) nicht anklickbar
+function schedCells(m, interactive){
+  if(interactive) return courtCell(m)+statusCell(m)+timeCell(m);
+  const dash=`<td style="text-align:center;color:var(--muted)">–</td>`;
+  return dash+dash+dash;
 }
 async function setDisplayStatus(sel){
   const m=MATCHES.find(x=>x.id===sel.dataset.mid); if(!m) return;
@@ -1887,17 +2004,21 @@ function renderGroups(){
 }
 
 function renderGroupBlock(g,need){
-  const matches=MATCHES.filter(m=>m.group_id===g.id && m.phase==="group" && !m.is_bye).sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
-  const rows=matches.map(m=>`
-    <tr>
+  const all=MATCHES.filter(m=>m.group_id===g.id && m.phase==="group").sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
+  const matches=all.filter(m=> !m.is_bye || SHOW_BYES);
+  const rows=matches.map(m=>{
+    const bye=!!m.is_bye;
+    const hn = m.home_reg_id?regShort(m.home_reg_id):"Freilos";
+    const an = m.away_reg_id?regShort(m.away_reg_id):"Freilos";
+    const cell = bye ? `<span style="color:var(--ok);font-size:13px">kampflos</span>` : matchSummary(m);
+    return `
+    <tr class="${bye?"byerow":""}">
       <td class="mno">${m.match_no??""}</td>
-      ${courtCell(m)}
-      ${statusCell(m)}
-      <td><input class="mini time" type="time" data-mid="${m.id}" data-f="time" value="${m.scheduled_time?m.scheduled_time.slice(0,5):""}"></td>
-      <td class="who" style="text-align:right">${regShort(m.home_reg_id)}</td>
-      <td style="text-align:center;white-space:nowrap">${matchSummary(m)}</td>
-      <td class="who">${regShort(m.away_reg_id)}</td>
-    </tr>`).join("");
+      ${schedCells(m, !bye)}
+      <td class="who" style="text-align:right">${hn}</td>
+      <td style="text-align:center;white-space:nowrap">${cell}</td>
+      <td class="who">${an}</td>
+    </tr>`;}).join("");
 
   const standings=computeStandings(g.id);
   const byes=Math.max(0,(g.size||standings.length)-standings.length);
@@ -1912,7 +2033,7 @@ function renderGroupBlock(g,need){
 
   return `<div class="group-block" data-gid="${g.id}">
     <div class="gb-head">
-      <h3>${esc(g.name)}<span class="gb-sub">${matches.length} Spiele · ${need} Gewinnsätze${byes?` · ${byes}× Freilos`:""}</span></h3>
+      <h3>${esc(g.name)}<span class="gb-sub">${all.filter(m=>!m.is_bye).length} Spiele · ${need} Gewinnsätze${byes?` · ${byes}× Freilos`:""}</span></h3>
       <button class="btn btn-danger btn-sm" data-delgroup="${g.id}">Gruppe löschen</button>
     </div>
     <div class="gb-section-title">Spielplan</div>
@@ -1939,17 +2060,17 @@ function renderFinalBlock(g,need){
   const rows=matches.map(m=>{
     const H=sideReg(m,"home"), A=sideReg(m,"away");
     m.home_reg_id=H.reg||null; m.away_reg_id=A.reg||null;
+    const bye = H.ready && A.ready && !(H.reg && A.reg);
+    if(bye && !SHOW_BYES) return "";
     const nm=(S)=> S.reg?regShort(S.reg):((S.isBye||S.empty)?"Freilos":(S.ready?"—":`<span style="color:var(--muted);font-weight:400">${esc(S.srcLabel)}</span>`));
     let cell;
     if(!H.ready || !A.ready){ cell=`<span style="color:var(--muted);font-size:13px">wartet</span>`; }
     else if(H.reg && A.reg){ cell=matchSummary(m); }
     else if(H.reg || A.reg){ const w=H.reg||A.reg; cell=`<span style="color:var(--ok);font-size:13px">${regShort(w)} — kampflos</span>`; }
     else { cell=`<span style="color:var(--muted)">entfällt</span>`; }
-    return `<tr>
+    return `<tr class="${bye?"byerow":""}">
       <td class="mno">${m.match_no??""}</td>
-      ${courtCell(m)}
-      ${statusCell(m)}
-      <td><input class="mini time" type="time" data-mid="${m.id}" data-f="time" value="${m.scheduled_time?m.scheduled_time.slice(0,5):""}"></td>
+      ${schedCells(m, !bye)}
       <td class="who" style="text-align:right">${nm(H)}</td>
       <td style="text-align:center;white-space:nowrap">${cell}</td>
       <td class="who">${nm(A)}</td>
@@ -1978,6 +2099,8 @@ function renderStandalone(need, before){
   const rows=pm.map(m=>{
     const H=sideReg(m,"home"), A=sideReg(m,"away");
     m.home_reg_id=H.reg||null; m.away_reg_id=A.reg||null;   // im Speicher auflösen (für Ergebnis-Eingabe)
+    const bye = H.ready && A.ready && !(H.reg && A.reg);
+    if(bye && !SHOW_BYES) return "";
     const nm=(S)=> S.reg?regShort(S.reg):((S.isBye||S.empty)?"Freilos":(S.ready?"—":`<span style="color:var(--muted);font-weight:400">${esc(S.srcLabel)}</span>`));
     const homeName=nm(H), awayName=nm(A);
     let cell;
@@ -1985,11 +2108,9 @@ function renderStandalone(need, before){
     else if(H.reg && A.reg){ cell=matchSummary(m); }
     else if(H.reg || A.reg){ const w=H.reg||A.reg; cell=`<span style="color:var(--ok);font-size:13px">${regShort(w)} — kampflos</span>`; }
     else { cell=`<span style="color:var(--muted)">entfällt</span>`; }
-    return `<tr>
+    return `<tr class="${bye?"byerow":""}">
       <td style="font-weight:500">${esc(m.label||"")}</td>
-      ${courtCell(m)}
-      ${statusCell(m)}
-      <td><input class="mini time" type="time" data-mid="${m.id}" data-f="time" value="${m.scheduled_time?m.scheduled_time.slice(0,5):""}"></td>
+      ${schedCells(m, !bye)}
       <td class="who" style="text-align:right">${homeName}</td>
       <td style="text-align:center;white-space:nowrap">${cell}</td>
       <td class="who">${awayName}</td>
@@ -2046,10 +2167,82 @@ function computeStandings(groupId){
     h.ballsWon+=hb; h.ballsLost+=ab; a.ballsWon+=ab; a.ballsLost+=hb;
     if(hs>as){ h.wins++; a.losses++; } else if(as>hs){ a.wins++; h.losses++; }
   });
+
+  // Kampflose Siege: hat ein Gegner aufgegeben und liegt kein Ergebnis vor -> Gegner gewinnt
+  const need=(currentEvent&&currentEvent.win_sets)||3;
+  MATCHES.filter(m=>m.group_id===groupId && !m.is_bye).forEach(m=>{
+    const hasResult=Array.isArray(m.sets)&&m.sets.some(s=>s&&s[0]!=null&&s[1]!=null);
+    if(hasResult) return;
+    const h=stat[m.home_reg_id], a=stat[m.away_reg_id]; if(!h||!a) return;
+    const hRet=RETIRED.has(m.home_reg_id), aRet=RETIRED.has(m.away_reg_id);
+    if(hRet===aRet) return;                       // keiner oder beide aufgegeben
+    const w=hRet?a:h, l=hRet?h:a;
+    w.played++; l.played++; w.wins++; l.losses++;
+    w.setsWon+=need; l.setsLost+=need;
+  });
   Object.values(stat).forEach(s=> s.points=s.wins*ppw);
 
   const ordered=orderPlayers(ids, STANDINGS.order.length?STANDINGS.order:["match_points","sets","balls"], stat, gmatches, ppw);
   return ordered.map(id=>stat[id]);
+}
+
+// ---------- Vereinsrangliste: Punkte & Endplatzierung ----------
+const RANK_POINTS = {1:200,2:150,3:110,4:100,5:95,6:90,7:85,8:80,9:75,10:70,11:65,12:60,13:55,14:50,15:45,16:40,17:38,18:36,19:34,20:32,21:30,22:28,23:26,24:24,25:22,26:20,27:18,28:16,29:14,30:12,31:10,32:8};
+function pointsForRank(r){ if(RANK_POINTS[r]!=null) return RANK_POINTS[r]; if(r>=33 && r<=128) return 5; return 0; }
+function multiplierFor(n){ if(n<=6) return 1.00; if(n<=12) return 1.25; if(n<=16) return 1.50; if(n<=20) return 1.75; return 1.85; }
+function eventPoints(rank,n){ return Math.round(pointsForRank(rank)*multiplierFor(n)*100)/100; }
+
+function parsePlaceRange(s){
+  if(!s) return null;
+  const m=String(s).match(/Platz\s+(\d+)(?:\s*[–—-]\s*(\d+))?/);
+  if(!m) return null;
+  const a=+m[1], b=m[2]?+m[2]:+m[1];
+  return { a:Math.min(a,b), b:Math.max(a,b) };
+}
+// Endplatzierung des aktuellen Events: {place:{rank->regId}, complete, participants}
+function computeEventPlacement(){
+  const place={}; let complete=true;
+  // Platzierungsgruppen ("… Platz A–B") -> Tabelle gibt Reihenfolge
+  GROUPS.forEach(g=>{
+    const pr=parsePlaceRange(g.name); if(!pr) return;
+    if(!groupComplete(g.id)) complete=false;
+    computeStandings(g.id).forEach((s,i)=> place[pr.a+i]=s.regId);
+  });
+  // Platzierungsspiele mit genau 1–2 Plätzen ("Platz 3–4", "Finale (Platz 1–2)", "Platz 13")
+  MATCHES.filter(m=>m.phase==="placement").forEach(m=>{
+    const pr=parsePlaceRange(m.label); if(!pr) return;
+    const size=pr.b-pr.a+1; if(size>2) return;   // größere Bereiche sind Zwischenspiele
+    const o=matchOutcome(m);
+    if(!o.decided){ complete=false; return; }
+    if(o.winner) place[pr.a]=o.winner;
+    if(size===2 && o.loser) place[pr.b]=o.loser;
+  });
+  // Reine Einzelgruppe (keine Platzierungsstruktur)
+  if(Object.keys(place).length===0 && GROUPS.length){
+    if(!groupComplete(GROUPS[0].id)) complete=false;
+    computeStandings(GROUPS[0].id).forEach((s,i)=> place[i+1]=s.regId);
+  }
+  const participants=new Set(Object.values(place).filter(Boolean)).size;
+
+  // Aufgegebene Spieler ans Ende: der zuerst Verletzte wird Letzter
+  const retired=currentRegs.filter(r=>r.retired_at).sort((a,b)=> new Date(a.retired_at)-new Date(b.retired_at)).map(r=>r.id);
+  if(retired.length){
+    // aktuelle Reihenfolge (Rang 1..) ohne Aufgeber
+    const ranks=Object.keys(place).map(Number).sort((a,b)=>a-b);
+    const others=ranks.map(r=>place[r]).filter(id=>id && !retired.includes(id));
+    const total=others.length+retired.length;
+    // Aufgeber: zuerst verletzt -> höchste (schlechteste) Platznummer
+    const finalOrder=others.concat(retired.slice().reverse());
+    const np={}; finalOrder.forEach((id,i)=> np[i+1]=id);
+    return { place:np, complete, participants:total, retiredCount:retired.length };
+  }
+  return { place, complete, participants, retiredCount:0 };
+}
+function playerNameOfReg(regId){
+  const r=currentRegs.find(x=>x.id===regId); if(!r) return {pid:null, name:"—"};
+  if(r.player_id){ const p=PLAYERS.find(x=>x.id===r.player_id);
+    return { pid:r.player_id, name: p?`${p.last_name}, ${p.first_name||""}`.trim().replace(/,\s*$/,"") : "(gelöscht)" }; }
+  return { pid:null, name:`${r.guest_last_name||""}, ${r.guest_first_name||""}`.trim().replace(/,\s*$/,"")+" (Gast)" };
 }
 
 // Schlüssel je Kriterium (höher = besser). "h2h" wird nur innerhalb der aktuell gleichstehenden Gruppe gewertet.
@@ -2127,6 +2320,97 @@ $("#openBoardBtn").addEventListener("click", ()=>{
   if(!currentEvent){ toast("Bitte zuerst ein Event öffnen.",true); return; }
   window.open("anzeige.html?event="+encodeURIComponent(currentEvent.id), "_blank");
 });
+$("#hideByes").addEventListener("change", (e)=>{ SHOW_BYES = !e.target.checked; renderGroups(); });
+
+let placementCache=null;
+function openPlacementModal(){
+  if(!currentEvent){ toast("Bitte zuerst ein Event öffnen.",true); return; }
+  if(!GROUPS.length && !MATCHES.length){ toast("Für dieses Event ist noch kein Turnier aufgesetzt.",true); return; }
+  const res=computeEventPlacement(); placementCache=res;
+  const {place, complete, participants}=res;
+  const ranks=Object.keys(place).map(Number).sort((a,b)=>a-b);
+  const payLabel=(pm)=> pm==="cash"?"bar":pm==="account"?"Konto":"offen";
+  $("#placementInfo").innerHTML = `${participants} Teilnehmer · Multiplikator ×${multiplierFor(participants).toFixed(2).replace(".",",")}`+
+    (complete?` · <span style="color:var(--ok)">vollständig gespielt</span>`
+             :` · <span style="color:var(--danger)">noch nicht fertig – erst nach Abschluss speicherbar</span>`);
+  $("#placementList").innerHTML = ranks.length? `<table class="matches" style="width:100%"><thead><tr><th>Platz</th><th>Spieler</th><th class="st">Punkte</th><th class="st">Gebühr</th><th>Zahlung</th></tr></thead><tbody>`+
+    ranks.map(r=>{ const regId=place[r]; const nm=playerNameOfReg(regId); const reg=currentRegs.find(x=>x.id===regId);
+      const fee=reg?feeForReg(reg):0; const pm=reg?reg.payment_method:"";
+      return `<tr><td class="mno">${r}</td><td>${esc(nm.name)}</td><td class="st mono">${eventPoints(r,participants).toLocaleString("de-DE")}</td><td class="st mono">${eur(fee)}</td><td>${payLabel(pm)}</td></tr>`; }).join("")+
+    `</tbody></table>` : `<p class="hint">Noch keine Platzierungen ermittelbar.</p>`;
+  $("#savePlacementBtn").disabled = !complete || !ranks.length;
+  $("#placementModal").classList.remove("hidden");
+}
+function placementEmail(){
+  if(!placementCache) return;
+  const {place, participants}=placementCache;
+  const ranks=Object.keys(place).map(Number).sort((a,b)=>a-b);
+  const payLabel=(pm)=> pm==="cash"?"bar":pm==="account"?"Konto":"offen";
+  let total=0, cash=0, acct=0;
+  const lines=ranks.map(r=>{ const reg=currentRegs.find(x=>x.id===place[r]); const nm=playerNameOfReg(place[r]);
+    const fee=reg?feeForReg(reg):0; const pm=reg?reg.payment_method:""; total+=fee;
+    if(pm==="cash")cash+=fee; else if(pm==="account")acct+=fee;
+    return `${String(r).padStart(2)}. ${nm.name} — ${eur(fee)} (${payLabel(pm)})`; });
+  const body =
+    `Endabrechnung ${currentEvent.name||"Turnier"}${currentEvent.event_date?" ("+fmtDate(currentEvent.event_date)+")":""}\n`+
+    `Teilnehmer: ${participants}\n\n`+
+    lines.join("\n")+
+    `\n\nSumme: ${eur(total)}\nDavon bar: ${eur(cash)}\nDavon Kontoabbuchung: ${eur(acct)}\nOffen: ${eur(total-cash-acct)}\n`;
+  const subject=`Endabrechnung ${currentEvent.name||"Turnier"}`;
+  location.href = `mailto:${encodeURIComponent(TREASURER_EMAIL||"")}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+async function finalizeEvent(){
+  if(!placementCache || !placementCache.complete) return;
+  const {place, participants}=placementCache;
+  const rows=Object.keys(place).map(Number).map(rank=>{
+    const nm=playerNameOfReg(place[rank]);
+    return { event_id:currentEvent.id, player_id:nm.pid, name:nm.name, rank, participants,
+             rank_points:pointsForRank(rank), points:eventPoints(rank,participants) };
+  });
+  const {error:de}=await sb.from("event_results").delete().eq("event_id",currentEvent.id);
+  if(de){ toast(de.message,true); return; }
+  const {error:ie}=await sb.from("event_results").insert(rows);
+  if(ie){ toast(ie.message,true); return; }
+  await sb.from("events").update({finalized_at:new Date().toISOString()}).eq("id",currentEvent.id);
+  currentEvent.finalized_at=new Date().toISOString();
+  toast("Endplatzierung gespeichert – fließt in die Rangliste ein.");
+  $("#placementModal").classList.add("hidden");
+}
+$("#placementBtn").addEventListener("click", openPlacementModal);
+$("#emailPlacementBtn").addEventListener("click", placementEmail);
+$("#savePlacementBtn").addEventListener("click", finalizeEvent);
+document.querySelectorAll("[data-close-placement]").forEach(b=>b.addEventListener("click",()=>$("#placementModal").classList.add("hidden")));
+
+async function renderRangliste(){
+  const box=$("#rankingContainer"); box.innerHTML=`<p class="hint">Lädt…</p>`;
+  const {data:evs,error}=await sb.from("events")
+    .select("id,name,event_date,finalized_at,ranking_relevant")
+    .not("finalized_at","is",null).eq("ranking_relevant",true)
+    .order("event_date",{ascending:false}).order("finalized_at",{ascending:false}).limit(10);
+  if(error){ box.innerHTML=`<p class="hint">Fehler: ${esc(error.message)}</p>`; return; }
+  const events=evs||[];
+  if(!events.length){ box.innerHTML=`<div class="empty card"><strong>Noch keine Rangliste</strong>Erstelle in einem abgeschlossenen Event über „Endplatzierung" die Platzierung und speichere sie – danach erscheint sie hier.</div>`; return; }
+  const ids=events.map(e=>e.id);
+  const {data:results}=await sb.from("event_results").select("*").in("event_id",ids);
+  const byPlayer={};
+  (results||[]).forEach(r=>{ if(!r.player_id) return;
+    const o=byPlayer[r.player_id]=byPlayer[r.player_id]||{name:r.name, results:[]};
+    o.results.push(Number(r.points)); o.name=r.name; });
+  const rows=Object.keys(byPlayer).map(pid=>{
+    const o=byPlayer[pid];
+    const best4=o.results.slice().sort((a,b)=>b-a).slice(0,4);
+    return { name:o.name, sum:best4.reduce((a,b)=>a+b,0), count:o.results.length };
+  }).sort((a,b)=> b.sum-a.sum || a.name.localeCompare(b.name,"de"));
+  const evList=events.map(e=>esc(e.name||"Turnier")).join(" · ");
+  box.innerHTML = `
+    <div style="color:var(--muted);font-size:13px;margin-bottom:10px">Berücksichtigt: ${events.length} Turnier${events.length>1?"e":""} · ${rows.length} Spieler</div>
+    <div style="overflow-x:auto"><table class="standings" style="width:100%">
+      <thead><tr><th>Pl.</th><th>Spieler</th><th class="st">Ranglistenpunkte</th><th class="st">Turniere</th></tr></thead>
+      <tbody>${rows.map((r,i)=>`<tr class="${i===0?"top":""}"><td class="pos">${i+1}</td><td>${esc(r.name)}</td><td class="st mono">${r.sum.toLocaleString("de-DE")}</td><td class="st">${r.count}</td></tr>`).join("")}</tbody>
+    </table></div>
+    <div style="color:var(--muted);font-size:12px;margin-top:10px">Turniere: ${evList}</div>`;
+}
+$("#refreshRankingBtn").addEventListener("click", renderRangliste);
 $("#addGroupBtn").addEventListener("click", ()=>{
   if(seedList.length<3){ toast("Es müssen mindestens 3 Spieler gesetzt sein.",true); return; }
   fillModeSelect();
@@ -2375,9 +2659,30 @@ function openResultModal(mid){
     });
   });
   updateTally();
+  // Aufgabe-Buttons: nur sinnvoll, wenn beide Seiten echte Spieler sind
+  const hr=m.home_reg_id, ar=m.away_reg_id;
+  const rrow=$("#retireRow");
+  if(hr && ar){
+    rrow.style.display="";
+    $("#retireHomeBtn").textContent = "🏳 "+regShort(hr)+" gibt auf";
+    $("#retireAwayBtn").textContent = "🏳 "+regShort(ar)+" gibt auf";
+    $("#retireHomeBtn").onclick = ()=>retirePlayer(hr, ar);
+    $("#retireAwayBtn").onclick = ()=>retirePlayer(ar, hr);
+  } else { rrow.style.display="none"; }
   $("#resultModal").classList.remove("hidden");
 }
-document.querySelectorAll("[data-close-result]").forEach(b=>b.addEventListener("click",()=>$("#resultModal").classList.add("hidden")));
+async function retirePlayer(retiredReg, winnerReg){
+  const nm=regShort(retiredReg);
+  if(!confirm(`${nm} gibt auf?\nDer Gegner gewinnt kampflos. ${nm} wird als Freilos weitergeschoben und am Turnierende zuletzt platziert.`)) return;
+  const r=currentRegs.find(x=>x.id===retiredReg);
+  const ts=(r&&r.retired_at)?r.retired_at:new Date().toISOString();   // erste Aufgabe zählt für die Reihenfolge
+  const {error}=await sb.from("registrations").update({retired_at:ts}).eq("id",retiredReg);
+  if(error){ toast(error.message,true); return; }
+  if(r) r.retired_at=ts; RETIRED.add(retiredReg);
+  $("#resultModal").classList.add("hidden");
+  await loadTournament();
+  toast(nm+" hat aufgegeben – Gegner kampflos weiter.");
+}
 
 function readSets(){
   const rows={};
