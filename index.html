@@ -391,6 +391,7 @@
               <input type="checkbox" id="hideByes" style="cursor:pointer"> Freilos-Spiele ausblenden</label>
             <button class="btn btn-sm" id="openBoardBtn">Live-Anzeige öffnen ↗</button>
             <button class="btn btn-sm" id="placementBtn">Endplatzierung</button>
+            <button class="btn btn-sm" id="manualBtn">Manuell erfassen</button>
             <button class="btn btn-sm hidden" id="resetTournBtn">Turnier zurücksetzen</button>
             <button class="btn btn-primary btn-sm" id="addGroupBtn">Turnier aufsetzen</button>
           </div>
@@ -433,7 +434,10 @@
   <main id="tab-ranking" class="hidden">
     <div class="page-head">
       <h2>Vereinsrangliste</h2>
-      <button class="btn btn-sm" id="refreshRankingBtn">Aktualisieren</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-sm" id="openPublicRankingBtn">Öffentliche Seite ↗</button>
+        <button class="btn btn-sm" id="refreshRankingBtn">Aktualisieren</button>
+      </div>
     </div>
     <p class="hint">Beste 4 Ergebnisse der letzten 10 ranglistenrelevanten Turniere. Spieler ohne Teilnahme in diesen 10 Turnieren werden nicht geführt.</p>
     <div id="rankingContainer"></div>
@@ -579,7 +583,28 @@
 
 <div id="toast"></div>
 
+<div id="manualModal" class="overlay hidden">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-head"><h3>Ergebnisse erfassen / nachtragen</h3><button class="x-close" data-close-manual>×</button></div>
+    <div class="modal-body">
+      <p class="hint" style="margin-top:0">Trage die Endplatzierung eines (auch vergangenen) Turniers ein. Platz 1 oben. Die Punkte werden automatisch aus Platz und Teilnehmerzahl berechnet.</p>
+      <div class="row" style="align-items:flex-end">
+        <div style="max-width:180px"><label class="lbl">Teilnehmerzahl gesamt</label><input id="manParticipants" class="field mono" type="number" min="1" placeholder="z. B. 16"></div>
+        <label style="display:flex;align-items:center;gap:8px;font-size:14px;margin-bottom:8px"><input type="checkbox" id="manRelevant" checked> zählt für die Rangliste</label>
+      </div>
+      <div id="manualRows" style="margin-top:12px;max-height:46vh;overflow:auto"></div>
+      <button class="btn btn-sm" id="addManualRow" style="margin-top:8px">+ Spieler</button>
+    </div>
+    <div class="modal-foot">
+      <span style="flex:1"></span>
+      <button class="btn" data-close-manual>Abbrechen</button>
+      <button class="btn btn-primary" id="saveManualBtn">Speichern</button>
+    </div>
+  </div>
+</div>
+
 <div id="placementModal" class="overlay hidden">
+  <div class="modal" style="max-width:520px">
   <div class="modal" style="max-width:520px">
     <div class="modal-head"><h3>Endplatzierung</h3><button class="x-close" data-close-placement>×</button></div>
     <div class="modal-body">
@@ -2378,6 +2403,71 @@ async function finalizeEvent(){
 }
 $("#placementBtn").addEventListener("click", openPlacementModal);
 $("#emailPlacementBtn").addEventListener("click", placementEmail);
+
+// ---------- Manuelle Ergebniserfassung / Turnier nachtragen ----------
+let manualRows=[];   // [{playerId}]
+function playerOptions(sel){
+  const ps=PLAYERS.slice().sort((a,b)=> (a.last_name||"").localeCompare(b.last_name||"","de") || (a.first_name||"").localeCompare(b.first_name||"","de"));
+  return `<option value="">— Spieler wählen —</option>`+ps.map(p=>`<option value="${p.id}"${p.id===sel?" selected":""}>${esc(p.last_name)}, ${esc(p.first_name||"")}</option>`).join("");
+}
+function renderManualRows(){
+  const n=parseInt($("#manParticipants").value)|| manualRows.length || 0;
+  $("#manualRows").innerHTML = manualRows.map((row,i)=>`
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <span class="mono" style="width:34px;color:var(--muted);text-align:right">${i+1}.</span>
+      <select class="field manrow" data-i="${i}" style="flex:1">${playerOptions(row.playerId)}</select>
+      <span class="mono" style="width:70px;text-align:right;color:var(--muted)">${eventPoints(i+1, n||manualRows.length).toLocaleString("de-DE")}</span>
+      <button class="btn btn-ghost btn-sm" data-delrow="${i}">✕</button>
+    </div>`).join("");
+  $("#manualRows").querySelectorAll(".manrow").forEach(s=>s.addEventListener("change",()=>{ manualRows[+s.dataset.i].playerId=s.value; }));
+  $("#manualRows").querySelectorAll("[data-delrow]").forEach(b=>b.addEventListener("click",()=>{ manualRows.splice(+b.dataset.delrow,1); renderManualRows(); }));
+}
+async function openManualModal(){
+  if(!currentEvent){ toast("Bitte zuerst ein Event öffnen.",true); return; }
+  // vorhandene Ergebnisse laden (zum Bearbeiten)
+  const {data}=await sb.from("event_results").select("*").eq("event_id",currentEvent.id).order("rank");
+  if(data && data.length){
+    manualRows = data.map(r=>({playerId:r.player_id||""}));
+    $("#manParticipants").value = data[0].participants||data.length;
+  }else{
+    manualRows = Array.from({length:8},()=>({playerId:""}));
+    $("#manParticipants").value = "";
+  }
+  $("#manRelevant").checked = currentEvent.ranking_relevant!==false;
+  renderManualRows();
+  $("#manualModal").classList.remove("hidden");
+}
+$("#manParticipants").addEventListener("input", renderManualRows);
+$("#addManualRow").addEventListener("click", ()=>{ manualRows.push({playerId:""}); renderManualRows(); });
+document.querySelectorAll("[data-close-manual]").forEach(b=>b.addEventListener("click",()=>$("#manualModal").classList.add("hidden")));
+$("#manualBtn").addEventListener("click", openManualModal);
+$("#saveManualBtn").addEventListener("click", async ()=>{
+  const filled=manualRows.filter(r=>r.playerId);
+  if(!filled.length){ toast("Bitte mindestens einen Spieler wählen.",true); return; }
+  const participants=parseInt($("#manParticipants").value) || manualRows.filter(r=>r.playerId).length;
+  // Ränge = Reihenfolge der ausgefüllten Zeilen
+  const rows=[]; let rank=0;
+  manualRows.forEach(r=>{ if(!r.playerId) return; rank++;
+    const p=PLAYERS.find(x=>x.id===r.playerId);
+    const name=p?`${p.last_name}, ${p.first_name||""}`.replace(/,\s*$/,""):"";
+    rows.push({ event_id:currentEvent.id, player_id:r.playerId, name, rank, participants,
+      rank_points:pointsForRank(rank), points:eventPoints(rank,participants) });
+  });
+  // Doppelte Spieler prüfen
+  const seen=new Set(); for(const r of rows){ if(seen.has(r.player_id)){ toast("Ein Spieler ist doppelt eingetragen.",true); return; } seen.add(r.player_id); }
+  const {error:de}=await sb.from("event_results").delete().eq("event_id",currentEvent.id);
+  if(de){ toast(de.message,true); return; }
+  const {error:ie}=await sb.from("event_results").insert(rows);
+  if(ie){ toast(ie.message,true); return; }
+  await sb.from("events").update({ finalized_at:new Date().toISOString(), ranking_relevant:$("#manRelevant").checked }).eq("id",currentEvent.id);
+  currentEvent.finalized_at=new Date().toISOString(); currentEvent.ranking_relevant=$("#manRelevant").checked;
+  toast("Ergebnisse gespeichert ("+rows.length+" Spieler).");
+  $("#manualModal").classList.add("hidden");
+});
+$("#openPublicRankingBtn").addEventListener("click", ()=>{
+  const dir=location.pathname.replace(/\/[^/]*$/,"/");
+  window.open(location.origin+dir+"rangliste.html","_blank");
+});
 $("#savePlacementBtn").addEventListener("click", finalizeEvent);
 document.querySelectorAll("[data-close-placement]").forEach(b=>b.addEventListener("click",()=>$("#placementModal").classList.add("hidden")));
 

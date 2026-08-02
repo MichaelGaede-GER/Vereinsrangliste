@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vereinsrangliste · SC Yellow Dot Maintal</title>
+<style>
+  :root{
+    --bg:#F5F6F4; --surface:#FFFFFF; --ink:#16211C; --muted:#5E6B64;
+    --border:#E3E6E1; --accent:#2E7D4F; --gold:#C8A24B; --zebra:#F1F3EE;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;line-height:1.5}
+  .wrap{max-width:760px;margin:0 auto;padding:28px 18px 60px}
+  header{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:6px}
+  h1{font-size:24px;margin:0;font-weight:800;letter-spacing:.2px}
+  .sub{color:var(--muted);font-size:14px;margin:0 0 20px}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.03)}
+  table{width:100%;border-collapse:collapse}
+  th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);text-align:left;padding:12px 14px;border-bottom:1px solid var(--border)}
+  td{padding:12px 14px;border-bottom:1px solid var(--border);font-size:15px}
+  tbody tr:nth-child(odd){background:var(--zebra)}
+  tbody tr:last-child td{border-bottom:none}
+  .pos{font-variant-numeric:tabular-nums;font-weight:700;width:46px;color:var(--muted)}
+  tr.top1 .pos{color:var(--gold)} tr.top1{font-weight:700}
+  .pts{text-align:right;font-variant-numeric:tabular-nums;font-weight:700;white-space:nowrap}
+  .cnt{text-align:right;color:var(--muted);font-variant-numeric:tabular-nums;width:70px}
+  th.r{text-align:right}
+  .foot{color:var(--muted);font-size:12px;margin-top:16px;text-align:center}
+  .empty{padding:40px;text-align:center;color:var(--muted)}
+  .meta{color:var(--muted);font-size:13px;margin:14px 2px 0}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Vereinsrangliste</h1>
+    <span class="sub" id="updated"></span>
+  </header>
+  <p class="sub">Beste 4 Ergebnisse der letzten 10 Ranglistenturniere.</p>
+  <div id="content"><div class="card"><div class="empty">Lädt…</div></div></div>
+  <div class="foot">SC Yellow Dot Maintal e.V.</div>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const cfg = window.SUPABASE_CONFIG || {};
+function esc(s){ return (s==null?"":String(s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function nfmt(n){ return Number(n||0).toLocaleString("de-DE"); }
+
+async function load(){
+  if(!cfg.url || !cfg.anonKey){ $("#content").innerHTML=`<div class="card"><div class="empty">config.js fehlt.</div></div>`; return; }
+  const sb = supabase.createClient(cfg.url, cfg.anonKey);
+  const { data:events, error:e1 } = await sb.from("public_ranking_events")
+    .select("id,name,event_date,finalized_at")
+    .order("event_date",{ascending:false}).order("finalized_at",{ascending:false}).limit(10);
+  if(e1){ $("#content").innerHTML=`<div class="card"><div class="empty">Fehler beim Laden.</div></div>`; return; }
+  if(!events || !events.length){ $("#content").innerHTML=`<div class="card"><div class="empty">Noch keine Ranglistenturniere veröffentlicht.</div></div>`; return; }
+  const ids = events.map(e=>e.id);
+  const { data:results } = await sb.from("public_ranking_results").select("event_id,name,points").in("event_id",ids);
+  const byPlayer={};
+  (results||[]).forEach(r=>{ const key=r.name; (byPlayer[key]=byPlayer[key]||{name:r.name,pts:[]}).pts.push(Number(r.points)); });
+  const rows = Object.values(byPlayer).map(o=>{
+    const best4=o.pts.slice().sort((a,b)=>b-a).slice(0,4);
+    return { name:o.name, sum:best4.reduce((a,b)=>a+b,0), count:o.pts.length };
+  }).sort((a,b)=> b.sum-a.sum || a.name.localeCompare(b.name,"de"));
+
+  $("#content").innerHTML = `
+    <div class="card">
+      <table>
+        <thead><tr><th>Pl.</th><th>Spieler</th><th class="r">Punkte</th><th class="r">Turniere</th></tr></thead>
+        <tbody>${rows.map((r,i)=>`
+          <tr class="${i===0?"top1":""}">
+            <td class="pos">${i+1}</td><td>${esc(r.name)}</td>
+            <td class="pts">${nfmt(r.sum)}</td><td class="cnt">${r.count}</td>
+          </tr>`).join("")}</tbody>
+      </table>
+    </div>
+    <div class="meta">Berücksichtigte Turniere: ${events.map(e=>esc(e.name||"Turnier")).join(" · ")}</div>`;
+  $("#updated").textContent = "Stand: "+new Date().toLocaleDateString("de-DE",{day:"2-digit",month:"long",year:"numeric"});
+  clearTimeout(window.__t); window.__t=setTimeout(()=>location.reload(), 60000);
+}
+load();
+</script>
+</body>
+</html>
