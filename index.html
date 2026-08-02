@@ -496,6 +496,11 @@
         Die Teilnehmer kommen aus der gespeicherten Setzung. Fehlende Plätze werden mit Freilosen aufgefüllt.</p>
       <label class="lbl">Spielmodus</label>
       <select id="grMode" class="field"></select>
+      <label class="lbl" style="margin-top:14px">Gewinnsätze</label>
+      <select id="grWinSets" class="field">
+        <option value="2">2 Gewinnsätze (Best of 3)</option>
+        <option value="3">3 Gewinnsätze (Best of 5)</option>
+      </select>
       <div id="grSizeWrap" style="margin-top:14px">
         <label class="lbl">Anzahl Spieler</label>
         <input id="grSize" class="field mono" type="number" min="3" max="32" value="5">
@@ -1416,7 +1421,7 @@ function sideReg(m, side){
     const o=matchOutcome(src);
     const reg=tp==="winner"?o.winner:o.loser;
     const label=(src?(src.label||"Spiel"):"Spiel")+(tp==="winner"?" – Sieger":" – Verlierer");
-    return { reg, ready:o.decided, isBye:false, srcLabel:label };
+    return { reg, ready:o.decided, isBye: o.decided && reg===null, srcLabel:label };
   }
   return { reg: m[side+"_reg_id"]||null, ready:true, isBye:false, empty: !m[side+"_reg_id"], srcLabel:"—" };
 }
@@ -1705,6 +1710,7 @@ function syncModeUi(){
 $("#addGroupBtn").addEventListener("click", ()=>{
   if(seedList.length<3){ toast("Es müssen mindestens 3 Spieler gesetzt sein.",true); return; }
   fillModeSelect();
+  $("#grWinSets").value=String(currentEvent.win_sets||3);
   $("#groupModal").classList.remove("hidden");
 });
 $("#grMode").addEventListener("change", syncModeUi);
@@ -1737,8 +1743,9 @@ $("#createGroupBtn").addEventListener("click", async ()=>{
       await sb.from("matches").delete().eq("event_id",currentEvent.id);
       await sb.from("groups").delete().eq("event_id",currentEvent.id);
     }
-    await sb.from("events").update({ mode:mode.id }).eq("id",currentEvent.id);
+    await sb.from("events").update({ mode:mode.id, win_sets:parseInt($("#grWinSets").value)||3 }).eq("id",currentEvent.id);
     currentEvent.mode=mode.id;
+    currentEvent.win_sets=parseInt($("#grWinSets").value)||3;
 
     const groupIds=[];
     for(let gi=0; gi<plan.groups.length; gi++){
