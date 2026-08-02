@@ -363,7 +363,7 @@
           <div style="display:flex;align-items:center;gap:12px"><h2 style="font-size:18px">Setzung</h2>
             <span class="count" id="seedCount">0</span></div>
           <div style="display:flex;gap:8px">
-            <button class="btn btn-sm" id="importPdfBtn">Rangliste einlesen</button>
+            <button class="btn btn-sm" id="seedFromRankingBtn">Aus Rangliste setzen</button>
             <button class="btn btn-primary btn-sm" id="saveSeedBtn">Setzung speichern</button>
           </div>
         </div>
@@ -371,14 +371,14 @@
           <table>
             <thead><tr>
               <th style="width:60px">Setz.</th><th>Name</th>
-              <th class="hide-sm">Status</th><th class="hide-sm" style="width:90px">PDF-Rang</th>
+              <th class="hide-sm">Status</th><th class="hide-sm" style="width:90px">Rangl.-Platz</th>
               <th class="actions-cell">Reihenfolge</th>
             </tr></thead>
             <tbody id="seedBody"></tbody>
           </table>
           <div id="seedEmpty" class="empty hidden">
             <strong>Noch keine Teilnehmer</strong>
-            Melde zuerst Spieler an, dann lies die Rangliste ein.
+            Melde zuerst Spieler an, dann kannst du „Aus Rangliste setzen" nutzen.
           </div>
         </div>
       </div>
@@ -1349,14 +1349,37 @@ $("#saveSeedBtn").addEventListener("click", async ()=>{
 });
 
 // ---- Import-Modal ----
-$("#importPdfBtn").addEventListener("click", ()=>{
+async function computeClubRanking(){
+  const {data:events}=await sb.from("events").select("id")
+    .not("finalized_at","is",null).eq("ranking_relevant",true)
+    .order("event_date",{ascending:false}).order("finalized_at",{ascending:false}).limit(10);
+  const ids=(events||[]).map(e=>e.id);
+  if(!ids.length) return {};
+  const {data:results}=await sb.from("event_results").select("player_id,points").in("event_id",ids);
+  const byP={}; (results||[]).forEach(r=>{ if(!r.player_id) return; (byP[r.player_id]=byP[r.player_id]||[]).push(Number(r.points)); });
+  const rows=Object.keys(byP).map(pid=>{ const best4=byP[pid].sort((a,b)=>b-a).slice(0,4); return {pid, sum:best4.reduce((a,b)=>a+b,0)}; })
+    .sort((a,b)=> b.sum-a.sum);
+  const pos={}; rows.forEach((r,i)=> pos[r.pid]=i+1);
+  return pos;
+}
+$("#seedFromRankingBtn").addEventListener("click", async ()=>{
   if(!currentRegs.length){ toast("Es sind noch keine Spieler angemeldet.",true); return; }
-  $("#importStep1").classList.remove("hidden");
-  $("#importStep2").classList.add("hidden");
-  $("#applySeedBtn").classList.add("hidden");
-  $("#importMsg").className="msg-box hidden";
-  $("#pdfFile").value="";
-  $("#importModal").classList.remove("hidden");
+  const btn=$("#seedFromRankingBtn"); btn.disabled=true;
+  try{
+    const pos=await computeClubRanking();
+    seedList.forEach(it=>{ const pid=it.reg.player_id; it.rank = (pid && pos[pid]!=null) ? pos[pid] : null; });
+    seedList.sort((a,b)=>{
+      if(a.rank!=null && b.rank!=null) return a.rank-b.rank;
+      if(a.rank!=null) return -1; if(b.rank!=null) return 1;
+      const ag=!a.reg.player_id, bg=!b.reg.player_id;        // Gäste ans Ende
+      if(ag!==bg) return ag?1:-1;
+      return a.name.localeCompare(b.name,"de");
+    });
+    renderSeeding();
+    const ranked=seedList.filter(it=>it.rank!=null).length;
+    toast(ranked? `Setzung aus Rangliste vorgeschlagen (${ranked} gereiht). Gäste kannst du frei verschieben.` : "Noch keine Ranglistendaten vorhanden.", !ranked);
+  }catch(e){ toast("Fehler: "+e.message,true); }
+  btn.disabled=false;
 });
 document.querySelectorAll("[data-close-import]").forEach(b=>b.addEventListener("click",()=>$("#importModal").classList.add("hidden")));
 function importErr(t){ const m=$("#importMsg"); m.textContent=t; m.className="msg-box err"; }
