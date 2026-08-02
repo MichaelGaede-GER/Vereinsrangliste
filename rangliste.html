@@ -12,10 +12,16 @@
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;line-height:1.5}
-  .wrap{max-width:820px;margin:0 auto;padding:28px 18px 60px}
+  #banner{max-width:1120px;margin:0 auto;padding:18px 18px 0}
+  #banner img{width:100%;max-height:170px;object-fit:contain;display:block}
+  .layout{max-width:1120px;margin:0 auto;display:grid;grid-template-columns:150px minmax(0,760px) 150px;gap:22px;justify-content:center;padding:20px 18px 60px}
+  .center{min-width:0}
   header{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:6px}
   h1{font-size:24px;margin:0;font-weight:800;letter-spacing:.2px}
   .sub{color:var(--muted);font-size:14px;margin:0 0 16px}
+  .spons{display:flex;flex-direction:column;gap:14px;padding-top:78px}
+  .spons a,.spons img{display:block;width:100%}
+  .spons img{background:#fff;border:1px solid var(--border);border-radius:12px;padding:8px;height:auto;object-fit:contain}
   .seg{display:inline-flex;background:#EAEDE8;border-radius:10px;padding:4px;margin:6px 0 18px}
   .seg button{border:0;background:transparent;padding:8px 16px;border-radius:8px;font-size:14px;font-weight:600;color:var(--muted);cursor:pointer}
   .seg button.on{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
@@ -39,7 +45,6 @@
   .empty{padding:40px;text-align:center;color:var(--muted)}
   .tourn-head{padding:13px 15px;font-weight:700;font-size:15px;display:flex;justify-content:space-between;align-items:baseline;gap:10px;border-bottom:1px solid var(--border);background:#FAFBFA}
   .tourn-head .date{color:var(--muted);font-size:13px;font-weight:500}
-  /* Modal */
   .overlay{position:fixed;inset:0;background:rgba(20,30,25,.45);display:flex;align-items:flex-start;justify-content:center;padding:6vh 16px;z-index:50}
   .overlay.hidden{display:none}
   .modal{background:var(--surface);border-radius:16px;max-width:560px;width:100%;max-height:86vh;overflow:auto;box-shadow:0 12px 40px rgba(0,0,0,.25)}
@@ -47,28 +52,67 @@
   .modal-head h3{margin:0;font-size:18px}
   .modal-head .x{border:0;background:transparent;font-size:24px;line-height:1;cursor:pointer;color:var(--muted)}
   .modal .mi{padding:6px 18px 14px;color:var(--muted);font-size:13px}
+  @media (max-width:960px){
+    .layout{grid-template-columns:1fr;max-width:760px}
+    .spons{flex-direction:row;flex-wrap:wrap;justify-content:center;padding-top:0}
+    .spons a,.spons img{width:auto}
+    .spons img{max-width:130px;max-height:72px}
+    .spons.left{order:2} .center{order:1} .spons.right{order:3}
+  }
   @media (max-width:560px){ .hide-sm{display:none} td,th{padding:10px 10px} }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <h1>Vereinsrangliste</h1>
-    <span class="sub" id="updated"></span>
-  </header>
-  <p class="sub">Beste 4 Ergebnisse der letzten 10 Ranglistenturniere. Tipp: auf einen Namen tippen zeigt alle Turniere des Spielers.</p>
 
-  <div class="seg" id="seg" style="display:none">
-    <button data-view="ranking" class="on">Rangliste</button>
-    <button data-view="turniere">Letzte 10 Turniere</button>
-  </div>
+<!-- ============================================================= -->
+<!--  HIER Banner und Sponsoren eintragen.                         -->
+<!--  Bilddateien einfach mit ins GitHub-Verzeichnis hochladen und -->
+<!--  den Dateinamen zwischen die Anführungszeichen schreiben.     -->
+<!--  Leere "" = wird NICHT angezeigt. Link ist optional.          -->
+<!-- ============================================================= -->
+<script>
+const SITE = {
+  banner: "",           // z. B. "banner.png"  — Bild ganz oben; leer lassen für keins
+  bannerLink: "",       // optionaler Link beim Klick auf den Banner
 
-  <div id="rankingView"><div class="card"><div class="empty">Lädt…</div></div></div>
-  <div id="turniereView" style="display:none"></div>
+  // Bis zu 4 Sponsoren-Logos LINKS:
+  sponsorsLeft:  ["", "", "", ""],
+  // optionale Links dazu (gleiche Reihenfolge):
+  sponsorsLeftLinks:  ["", "", "", ""],
 
-  <div class="foot">SC Yellow Dot Maintal e.V.</div>
+  // Bis zu 4 Sponsoren-Logos RECHTS:
+  sponsorsRight: ["", "", "", ""],
+  sponsorsRightLinks: ["", "", "", ""],
+};
+</script>
+<!-- ============================================================= -->
+
+<div id="banner"></div>
+
+<div class="layout">
+  <aside class="spons left" id="sponsLeft"></aside>
+
+  <main class="center">
+    <header>
+      <h1>Vereinsrangliste</h1>
+      <span class="sub" id="updated"></span>
+    </header>
+    <p class="sub">Beste 4 Ergebnisse der letzten 10 Ranglistenturniere. Tipp: auf einen Namen tippen zeigt alle Turniere des Spielers.</p>
+
+    <div class="seg" id="seg" style="display:none">
+      <button data-view="ranking" class="on">Rangliste</button>
+      <button data-view="turniere">Letzte 10 Turniere</button>
+    </div>
+
+    <div id="rankingView"><div class="card"><div class="empty">Lädt…</div></div></div>
+    <div id="turniereView" style="display:none"></div>
+
+    <div class="foot">SC Yellow Dot Maintal e.V.</div>
+  </main>
+
+  <aside class="spons right" id="sponsRight"></aside>
 </div>
 
 <div id="playerModal" class="overlay hidden">
@@ -86,8 +130,25 @@ function esc(s){ return (s==null?"":String(s)).replace(/[&<>"]/g,c=>({"&":"&amp;
 function nfmt(n){ return Number(n||0).toLocaleString("de-DE"); }
 function fdate(d){ if(!d) return ""; const p=String(d).slice(0,10).split("-"); return p.length===3?p[2]+"."+p[1]+"."+p[0]:d; }
 
-let ALL_RESULTS=[];      // {event_id,name,rank,points}
-let EVMAP={};            // event_id -> {name,event_date}
+// ---------- Banner & Sponsoren ----------
+function sponsorHTML(file, link){
+  if(!file) return "";
+  const img = '<img src="'+esc(file)+'" alt="Sponsor" loading="lazy" onerror="this.parentNode&&this.parentNode.classList.contains(\'sp\')?this.parentNode.remove():this.remove()">';
+  return link ? '<a class="sp" href="'+esc(link)+'" target="_blank" rel="noopener">'+img+'</a>' : img;
+}
+function renderSite(){
+  const S = window.SITE || {};
+  if(S.banner){
+    const img='<img src="'+esc(S.banner)+'" alt="" onerror="this.remove()">';
+    $("#banner").innerHTML = S.bannerLink ? '<a href="'+esc(S.bannerLink)+'" target="_blank" rel="noopener">'+img+'</a>' : img;
+  }
+  const L=S.sponsorsLeft||[], LL=S.sponsorsLeftLinks||[], R=S.sponsorsRight||[], RL=S.sponsorsRightLinks||[];
+  $("#sponsLeft").innerHTML  = L.map((f,i)=>sponsorHTML(f, LL[i])).join("");
+  $("#sponsRight").innerHTML = R.map((f,i)=>sponsorHTML(f, RL[i])).join("");
+}
+
+let ALL_RESULTS=[];
+let EVMAP={};
 
 function ranking(evIds, resByEvent){
   const byPlayer={};
@@ -97,7 +158,6 @@ function ranking(evIds, resByEvent){
     return { name:name, sum:best4.reduce((a,b)=>a+b,0), count:byPlayer[name].length };
   }).sort((a,b)=> b.sum-a.sum || a.name.localeCompare(b.name,"de"));
 }
-
 function trendCell(name, curPos, prevPos){
   const p = prevPos[name];
   if(p==null) return '<td class="trend"><span class="new">NEU</span></td>';
@@ -124,7 +184,6 @@ function renderRanking(cur, prevPos){
       '</tr>').join("")+
     '</tbody></table></div>';
 }
-
 function renderTournaments(events, resByEvent){
   if(!events.length){ $("#turniereView").innerHTML='<div class="card"><div class="empty">Keine Turniere.</div></div>'; return; }
   $("#turniereView").innerHTML = events.map(function(e){
@@ -136,7 +195,6 @@ function renderTournaments(events, resByEvent){
       '</tbody></table></div>';
   }).join("");
 }
-
 function openPlayer(name){
   const rows = ALL_RESULTS.filter(r=>r.name===name).map(r=>{
     const ev=EVMAP[r.event_id]||{}; return { ev:ev.name||"Turnier", date:ev.event_date||"", rank:r.rank, points:Number(r.points) };
@@ -163,6 +221,7 @@ function showView(v){
 }
 
 async function load(){
+  renderSite();
   if(!cfg.url || !cfg.anonKey){ $("#rankingView").innerHTML='<div class="card"><div class="empty">config.js fehlt.</div></div>'; return; }
   const sb = supabase.createClient(cfg.url, cfg.anonKey);
   const res1 = await sb.from("public_ranking_events")
@@ -178,10 +237,8 @@ async function load(){
   const resByEvent={}; ALL_RESULTS.forEach(r=> (resByEvent[r.event_id]=resByEvent[r.event_id]||[]).push(r));
 
   const ids = events.map(e=>e.id);
-  const currentIds = ids.slice(0,10);
-  const previousIds = ids.slice(1,11);
-  const current = ranking(currentIds, resByEvent);
-  const previous = ranking(previousIds, resByEvent);
+  const current = ranking(ids.slice(0,10), resByEvent);
+  const previous = ranking(ids.slice(1,11), resByEvent);
   const prevPos = {}; previous.forEach((r,i)=> prevPos[r.name]=i+1);
 
   renderRanking(current, prevPos);
