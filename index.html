@@ -1522,6 +1522,210 @@ const MODES=[
         ]
       }};
     } },
+  { id:"grp18", label:"18er Gruppensystem mit Platzierung 1–18 (18 Teilnehmer)", min:18, max:18, sizable:false,
+    build(parts){
+      return { recipe:{
+        matches:[
+          {key:"m101", label:"101 · 1. Runde", sort:1, home:{seed:1}, away:{seed:18}},
+          {key:"m102", label:"102 · 1. Runde", sort:2, home:{seed:2}, away:{seed:17}},
+          {key:"m103", label:"103 · 1. Runde", sort:3, home:{seed:3}, away:{seed:16}},
+          {key:"m104", label:"104 · 1. Runde", sort:4, home:{seed:4}, away:{seed:15}},
+          {key:"m105", label:"105 · 1. Runde", sort:5, home:{seed:5}, away:{seed:14}},
+          {key:"m106", label:"106 · 1. Runde", sort:6, home:{seed:6}, away:{seed:13}},
+          {key:"m107", label:"107 · 1. Runde", sort:7, home:{seed:7}, away:{seed:12}},
+          {key:"m108", label:"108 · 1. Runde", sort:8, home:{seed:8}, away:{seed:11}},
+          {key:"m109", label:"109 · 1. Runde", sort:9, home:{seed:9}, away:{seed:10}},
+        ],
+        groups:[
+          {key:"gA", name:"Gruppe A", sort:0, sources:[{m:"m101",t:"winner"},{m:"m106",t:"winner"},{m:"m107",t:"winner"}]},
+          {key:"gB", name:"Gruppe B", sort:1, sources:[{m:"m102",t:"winner"},{m:"m105",t:"winner"},{m:"m108",t:"winner"}]},
+          {key:"gC", name:"Gruppe C", sort:2, sources:[{m:"m103",t:"winner"},{m:"m104",t:"winner"},{m:"m109",t:"winner"}]},
+          {key:"gD", name:"Gruppe D", sort:3, sources:[{m:"m101",t:"loser"},{m:"m106",t:"loser"},{m:"m107",t:"loser"}]},
+          {key:"gE", name:"Gruppe E", sort:4, sources:[{m:"m102",t:"loser"},{m:"m105",t:"loser"},{m:"m108",t:"loser"}]},
+          {key:"gF", name:"Gruppe F", sort:5, sources:[{m:"m103",t:"loser"},{m:"m104",t:"loser"},{m:"m109",t:"loser"}]},
+          {key:"pABC1", name:"Platz 1–3",   stage:"final", sort:10, sources:[{g:"gA",place:1},{g:"gB",place:1},{g:"gC",place:1}]},
+          {key:"pABC2", name:"Platz 4–6",   stage:"final", sort:11, sources:[{g:"gA",place:2},{g:"gB",place:2},{g:"gC",place:2}]},
+          {key:"pABC3", name:"Platz 7–9",   stage:"final", sort:12, sources:[{g:"gA",place:3},{g:"gB",place:3},{g:"gC",place:3}]},
+          {key:"pDEF1", name:"Platz 10–12", stage:"final", sort:13, sources:[{g:"gD",place:1},{g:"gE",place:1},{g:"gF",place:1}]},
+          {key:"pDEF2", name:"Platz 13–15", stage:"final", sort:14, sources:[{g:"gD",place:2},{g:"gE",place:2},{g:"gF",place:2}]},
+          {key:"pDEF3", name:"Platz 16–18", stage:"final", sort:15, sources:[{g:"gD",place:3},{g:"gE",place:3},{g:"gF",place:3}]},
+        ]
+      }};
+    } },
+  { id:"ko19", label:"19er K.-o. mit Quali + Trostrunde, Platz 1–19 (19 Teilnehmer)", min:19, max:19, sizable:false,
+    build(parts){
+      return { recipe:{
+        matches:[
+          // Qualifikation (Sieger -> Hauptfeld, Verlierer -> Trostrunde)
+          {key:"mQ1", label:"Q1 · Qualifikation", sort:1, home:{seed:12}, away:{seed:19}},
+          {key:"mQ2", label:"Q2 · Qualifikation", sort:2, home:{seed:13}, away:{seed:18}},
+          {key:"mQ3", label:"Q3 · Qualifikation", sort:3, home:{seed:14}, away:{seed:17}},
+          {key:"mQ4", label:"Q4 · Qualifikation", sort:4, home:{seed:15}, away:{seed:16}},
+          // 1. Runde (16er-Raster, Freilos für Setz. 1, Q1–Q4 in den Plätzen 12–15)
+          {key:"m101", label:"101 · 1. Runde", sort:10, home:{seed:1},  away:{bye:true}},
+          {key:"m102", label:"102 · 1. Runde", sort:11, home:{seed:9},  away:{seed:8}},
+          {key:"m103", label:"103 · 1. Runde", sort:12, home:{seed:5},  away:{m:"mQ1",t:"winner"}},
+          {key:"m104", label:"104 · 1. Runde", sort:13, home:{m:"mQ2",t:"winner"}, away:{seed:4}},
+          {key:"m105", label:"105 · 1. Runde", sort:14, home:{seed:3},  away:{m:"mQ3",t:"winner"}},
+          {key:"m106", label:"106 · 1. Runde", sort:15, home:{seed:11}, away:{seed:6}},
+          {key:"m107", label:"107 · 1. Runde", sort:16, home:{seed:7},  away:{seed:10}},
+          {key:"m108", label:"108 · 1. Runde", sort:17, home:{m:"mQ4",t:"winner"}, away:{seed:2}},
+          // 2. Runde
+          {key:"m201", label:"201 · 2. Runde", sort:100, home:{m:"m101",t:"winner"}, away:{m:"m102",t:"winner"}},
+          {key:"m202", label:"202 · 2. Runde", sort:101, home:{m:"m103",t:"winner"}, away:{m:"m104",t:"winner"}},
+          {key:"m203", label:"203 · 2. Runde", sort:102, home:{m:"m105",t:"winner"}, away:{m:"m106",t:"winner"}},
+          {key:"m204", label:"204 · 2. Runde", sort:103, home:{m:"m107",t:"winner"}, away:{m:"m108",t:"winner"}},
+          {key:"m205", label:"205 · 2. Runde (9–16)", sort:104, home:{m:"m101",t:"loser"}, away:{m:"m102",t:"loser"}},
+          {key:"m206", label:"206 · 2. Runde (9–16)", sort:105, home:{m:"m103",t:"loser"}, away:{m:"m104",t:"loser"}},
+          {key:"m207", label:"207 · 2. Runde (9–16)", sort:106, home:{m:"m105",t:"loser"}, away:{m:"m106",t:"loser"}},
+          {key:"m208", label:"208 · 2. Runde (9–16)", sort:107, home:{m:"m107",t:"loser"}, away:{m:"m108",t:"loser"}},
+          // 3. Runde
+          {key:"m301", label:"301 · Halbfinale", sort:110, home:{m:"m201",t:"winner"}, away:{m:"m202",t:"winner"}},
+          {key:"m302", label:"302 · Halbfinale", sort:111, home:{m:"m203",t:"winner"}, away:{m:"m204",t:"winner"}},
+          {key:"m303", label:"303 · Platz 5–8",  sort:112, home:{m:"m201",t:"loser"},  away:{m:"m202",t:"loser"}},
+          {key:"m304", label:"304 · Platz 5–8",  sort:113, home:{m:"m203",t:"loser"},  away:{m:"m204",t:"loser"}},
+          {key:"m305", label:"305 · Platz 9–12", sort:114, home:{m:"m205",t:"winner"}, away:{m:"m206",t:"winner"}},
+          {key:"m306", label:"306 · Platz 9–12", sort:115, home:{m:"m207",t:"winner"}, away:{m:"m208",t:"winner"}},
+          {key:"m307", label:"307 · Platz 13–16",sort:116, home:{m:"m205",t:"loser"},  away:{m:"m206",t:"loser"}},
+          {key:"m308", label:"308 · Platz 13–16",sort:117, home:{m:"m207",t:"loser"},  away:{m:"m208",t:"loser"}},
+          // 4. Runde
+          {key:"m401", label:"401 · Finale (Platz 1–2)", sort:120, home:{m:"m301",t:"winner"}, away:{m:"m302",t:"winner"}},
+          {key:"m402", label:"402 · Platz 3–4",  sort:121, home:{m:"m301",t:"loser"},  away:{m:"m302",t:"loser"}},
+          {key:"m403", label:"403 · Platz 5–6",  sort:122, home:{m:"m303",t:"winner"}, away:{m:"m304",t:"winner"}},
+          {key:"m404", label:"404 · Platz 7–8",  sort:123, home:{m:"m303",t:"loser"},  away:{m:"m304",t:"loser"}},
+          {key:"m405", label:"405 · Platz 9–10", sort:124, home:{m:"m305",t:"winner"}, away:{m:"m306",t:"winner"}},
+          {key:"m406", label:"406 · Platz 11–12",sort:125, home:{m:"m305",t:"loser"},  away:{m:"m306",t:"loser"}},
+          {key:"m407", label:"407 · Platz 13–14",sort:126, home:{m:"m307",t:"winner"}, away:{m:"m308",t:"winner"}},
+          {key:"m408", label:"408 · Platz 15",   sort:127, home:{m:"m307",t:"loser"},  away:{m:"m308",t:"loser"}},
+        ],
+        groups:[
+          {key:"gTrost", name:"Trostrunde (Platz 16–19)", sort:0,
+            sources:[{m:"mQ1",t:"loser"},{m:"mQ2",t:"loser"},{m:"mQ3",t:"loser"},{m:"mQ4",t:"loser"}]},
+        ]
+      }};
+    } },
+  { id:"ko20", label:"20er K.-o. mit Quali + Trostrunde, Platz 1–20 (20 Teilnehmer)", min:20, max:20, sizable:false,
+    build(parts){
+      return { recipe:{
+        matches:[
+          {key:"mQ1", label:"Q1 · Qualifikation", sort:1, home:{seed:13}, away:{seed:20}},
+          {key:"mQ2", label:"Q2 · Qualifikation", sort:2, home:{seed:14}, away:{seed:19}},
+          {key:"mQ3", label:"Q3 · Qualifikation", sort:3, home:{seed:15}, away:{seed:18}},
+          {key:"mQ4", label:"Q4 · Qualifikation", sort:4, home:{seed:16}, away:{seed:17}},
+          {key:"m101", label:"101 · 1. Runde", sort:10, home:{seed:1},  away:{m:"mQ4",t:"winner"}},
+          {key:"m102", label:"102 · 1. Runde", sort:11, home:{seed:9},  away:{seed:8}},
+          {key:"m103", label:"103 · 1. Runde", sort:12, home:{seed:5},  away:{seed:12}},
+          {key:"m104", label:"104 · 1. Runde", sort:13, home:{m:"mQ1",t:"winner"}, away:{seed:4}},
+          {key:"m105", label:"105 · 1. Runde", sort:14, home:{seed:3},  away:{m:"mQ2",t:"winner"}},
+          {key:"m106", label:"106 · 1. Runde", sort:15, home:{seed:11}, away:{seed:6}},
+          {key:"m107", label:"107 · 1. Runde", sort:16, home:{seed:7},  away:{seed:10}},
+          {key:"m108", label:"108 · 1. Runde", sort:17, home:{m:"mQ3",t:"winner"}, away:{seed:2}},
+          {key:"m201", label:"201 · 2. Runde", sort:100, home:{m:"m101",t:"winner"}, away:{m:"m102",t:"winner"}},
+          {key:"m202", label:"202 · 2. Runde", sort:101, home:{m:"m103",t:"winner"}, away:{m:"m104",t:"winner"}},
+          {key:"m203", label:"203 · 2. Runde", sort:102, home:{m:"m105",t:"winner"}, away:{m:"m106",t:"winner"}},
+          {key:"m204", label:"204 · 2. Runde", sort:103, home:{m:"m107",t:"winner"}, away:{m:"m108",t:"winner"}},
+          {key:"m205", label:"205 · 2. Runde (9–16)", sort:104, home:{m:"m101",t:"loser"}, away:{m:"m102",t:"loser"}},
+          {key:"m206", label:"206 · 2. Runde (9–16)", sort:105, home:{m:"m103",t:"loser"}, away:{m:"m104",t:"loser"}},
+          {key:"m207", label:"207 · 2. Runde (9–16)", sort:106, home:{m:"m105",t:"loser"}, away:{m:"m106",t:"loser"}},
+          {key:"m208", label:"208 · 2. Runde (9–16)", sort:107, home:{m:"m107",t:"loser"}, away:{m:"m108",t:"loser"}},
+          {key:"m301", label:"301 · Halbfinale", sort:110, home:{m:"m201",t:"winner"}, away:{m:"m202",t:"winner"}},
+          {key:"m302", label:"302 · Halbfinale", sort:111, home:{m:"m203",t:"winner"}, away:{m:"m204",t:"winner"}},
+          {key:"m303", label:"303 · Platz 5–8",  sort:112, home:{m:"m201",t:"loser"},  away:{m:"m202",t:"loser"}},
+          {key:"m304", label:"304 · Platz 5–8",  sort:113, home:{m:"m203",t:"loser"},  away:{m:"m204",t:"loser"}},
+          {key:"m305", label:"305 · Platz 9–12", sort:114, home:{m:"m205",t:"winner"}, away:{m:"m206",t:"winner"}},
+          {key:"m306", label:"306 · Platz 9–12", sort:115, home:{m:"m207",t:"winner"}, away:{m:"m208",t:"winner"}},
+          {key:"m307", label:"307 · Platz 13–16",sort:116, home:{m:"m205",t:"loser"},  away:{m:"m206",t:"loser"}},
+          {key:"m308", label:"308 · Platz 13–16",sort:117, home:{m:"m207",t:"loser"},  away:{m:"m208",t:"loser"}},
+          {key:"m401", label:"401 · Finale (Platz 1–2)", sort:120, home:{m:"m301",t:"winner"}, away:{m:"m302",t:"winner"}},
+          {key:"m402", label:"402 · Platz 3–4",  sort:121, home:{m:"m301",t:"loser"},  away:{m:"m302",t:"loser"}},
+          {key:"m403", label:"403 · Platz 5–6",  sort:122, home:{m:"m303",t:"winner"}, away:{m:"m304",t:"winner"}},
+          {key:"m404", label:"404 · Platz 7–8",  sort:123, home:{m:"m303",t:"loser"},  away:{m:"m304",t:"loser"}},
+          {key:"m405", label:"405 · Platz 9–10", sort:124, home:{m:"m305",t:"winner"}, away:{m:"m306",t:"winner"}},
+          {key:"m406", label:"406 · Platz 11–12",sort:125, home:{m:"m305",t:"loser"},  away:{m:"m306",t:"loser"}},
+          {key:"m407", label:"407 · Platz 13–14",sort:126, home:{m:"m307",t:"winner"}, away:{m:"m308",t:"winner"}},
+          {key:"m408", label:"408 · Platz 15–16",sort:127, home:{m:"m307",t:"loser"},  away:{m:"m308",t:"loser"}},
+        ],
+        groups:[
+          {key:"gTrost", name:"Trostrunde (Platz 17–20)", sort:0,
+            sources:[{m:"mQ1",t:"loser"},{m:"mQ2",t:"loser"},{m:"mQ3",t:"loser"},{m:"mQ4",t:"loser"}]},
+        ]
+      }};
+    } },
+  { id:"ko21", label:"21er K.-o. mit Quali + Trostrunde, Platz 1–21 (21 Teilnehmer)", min:21, max:21, sizable:false,
+    build(parts){
+      return { recipe:{
+        matches:[
+          {key:"mQ1", label:"Q1 · Qualifikation", sort:1, home:{seed:12}, away:{seed:21}},
+          {key:"mQ2", label:"Q2 · Qualifikation", sort:2, home:{seed:13}, away:{seed:20}},
+          {key:"mQ3", label:"Q3 · Qualifikation", sort:3, home:{seed:14}, away:{seed:19}},
+          {key:"mQ4", label:"Q4 · Qualifikation", sort:4, home:{seed:15}, away:{seed:18}},
+          {key:"mQ5", label:"Q5 · Qualifikation", sort:5, home:{seed:16}, away:{seed:17}},
+          {key:"m101", label:"101 · 1. Runde", sort:10, home:{seed:1},  away:{m:"mQ5",t:"winner"}},
+          {key:"m102", label:"102 · 1. Runde", sort:11, home:{seed:9},  away:{seed:8}},
+          {key:"m103", label:"103 · 1. Runde", sort:12, home:{seed:5},  away:{m:"mQ1",t:"winner"}},
+          {key:"m104", label:"104 · 1. Runde", sort:13, home:{m:"mQ2",t:"winner"}, away:{seed:4}},
+          {key:"m105", label:"105 · 1. Runde", sort:14, home:{seed:3},  away:{m:"mQ3",t:"winner"}},
+          {key:"m106", label:"106 · 1. Runde", sort:15, home:{seed:11}, away:{seed:6}},
+          {key:"m107", label:"107 · 1. Runde", sort:16, home:{seed:7},  away:{seed:10}},
+          {key:"m108", label:"108 · 1. Runde", sort:17, home:{m:"mQ4",t:"winner"}, away:{seed:2}},
+          {key:"m201", label:"201 · 2. Runde", sort:100, home:{m:"m101",t:"winner"}, away:{m:"m102",t:"winner"}},
+          {key:"m202", label:"202 · 2. Runde", sort:101, home:{m:"m103",t:"winner"}, away:{m:"m104",t:"winner"}},
+          {key:"m203", label:"203 · 2. Runde", sort:102, home:{m:"m105",t:"winner"}, away:{m:"m106",t:"winner"}},
+          {key:"m204", label:"204 · 2. Runde", sort:103, home:{m:"m107",t:"winner"}, away:{m:"m108",t:"winner"}},
+          {key:"m205", label:"205 · 2. Runde (9–16)", sort:104, home:{m:"m101",t:"loser"}, away:{m:"m102",t:"loser"}},
+          {key:"m206", label:"206 · 2. Runde (9–16)", sort:105, home:{m:"m103",t:"loser"}, away:{m:"m104",t:"loser"}},
+          {key:"m207", label:"207 · 2. Runde (9–16)", sort:106, home:{m:"m105",t:"loser"}, away:{m:"m106",t:"loser"}},
+          {key:"m208", label:"208 · 2. Runde (9–16)", sort:107, home:{m:"m107",t:"loser"}, away:{m:"m108",t:"loser"}},
+          {key:"m301", label:"301 · Halbfinale", sort:110, home:{m:"m201",t:"winner"}, away:{m:"m202",t:"winner"}},
+          {key:"m302", label:"302 · Halbfinale", sort:111, home:{m:"m203",t:"winner"}, away:{m:"m204",t:"winner"}},
+          {key:"m303", label:"303 · Platz 5–8",  sort:112, home:{m:"m201",t:"loser"},  away:{m:"m202",t:"loser"}},
+          {key:"m304", label:"304 · Platz 5–8",  sort:113, home:{m:"m203",t:"loser"},  away:{m:"m204",t:"loser"}},
+          {key:"m305", label:"305 · Platz 9–12", sort:114, home:{m:"m205",t:"winner"}, away:{m:"m206",t:"winner"}},
+          {key:"m306", label:"306 · Platz 9–12", sort:115, home:{m:"m207",t:"winner"}, away:{m:"m208",t:"winner"}},
+          {key:"m307", label:"307 · Platz 13–16",sort:116, home:{m:"m205",t:"loser"},  away:{m:"m206",t:"loser"}},
+          {key:"m308", label:"308 · Platz 13–16",sort:117, home:{m:"m207",t:"loser"},  away:{m:"m208",t:"loser"}},
+          {key:"m401", label:"401 · Finale (Platz 1–2)", sort:120, home:{m:"m301",t:"winner"}, away:{m:"m302",t:"winner"}},
+          {key:"m402", label:"402 · Platz 3–4",  sort:121, home:{m:"m301",t:"loser"},  away:{m:"m302",t:"loser"}},
+          {key:"m403", label:"403 · Platz 5–6",  sort:122, home:{m:"m303",t:"winner"}, away:{m:"m304",t:"winner"}},
+          {key:"m404", label:"404 · Platz 7–8",  sort:123, home:{m:"m303",t:"loser"},  away:{m:"m304",t:"loser"}},
+          {key:"m405", label:"405 · Platz 9–10", sort:124, home:{m:"m305",t:"winner"}, away:{m:"m306",t:"winner"}},
+          {key:"m406", label:"406 · Platz 11–12",sort:125, home:{m:"m305",t:"loser"},  away:{m:"m306",t:"loser"}},
+          {key:"m407", label:"407 · Platz 13–14",sort:126, home:{m:"m307",t:"winner"}, away:{m:"m308",t:"winner"}},
+          {key:"m408", label:"408 · Platz 15–16",sort:127, home:{m:"m307",t:"loser"},  away:{m:"m308",t:"loser"}},
+        ],
+        groups:[
+          {key:"gTrost", name:"Trostrunde (Platz 17–21)", sort:0,
+            sources:[{m:"mQ1",t:"loser"},{m:"mQ2",t:"loser"},{m:"mQ3",t:"loser"},{m:"mQ4",t:"loser"},{m:"mQ5",t:"loser"}]},
+        ]
+      }};
+    } },
+  { id:"ko32", label:"32er K.-o. mit voller Platzierung 1–32 (32 Teilnehmer)", min:32, max:32, sizable:false,
+    build(parts){
+      // Standard-32er-Setzungsreihenfolge
+      const order=[1,32,16,17,9,24,8,25,5,28,12,21,13,20,4,29,3,30,14,19,11,22,6,27,7,26,10,23,15,18,2,31];
+      let streams=[{sources:order.map(s=>({seed:s})), base:1}];
+      let round=1; const matches=[];
+      while(streams.some(s=>s.sources.length>1)){
+        const next=[]; let pos=0;
+        for(const st of streams){
+          const n=st.sources.length;
+          if(n===1){ next.push(st); continue; }
+          const W=[], L=[];
+          for(let i=0;i<n/2;i++){
+            pos++; const key="r"+round+"p"+pos, no=round*100+pos;
+            const label = round===1 ? (no+" · 1. Runde")
+                        : (n===2 ? (no+" · Platz "+st.base+"–"+(st.base+1))
+                                 : (no+" · Runde "+round+" (Platz "+st.base+"–"+(st.base+n-1)+")"));
+            matches.push({ key, label, sort:no, home:st.sources[2*i], away:st.sources[2*i+1] });
+            W.push({m:key,t:"winner"}); L.push({m:key,t:"loser"});
+          }
+          next.push({sources:W, base:st.base});
+          next.push({sources:L, base:st.base+n/2});
+        }
+        streams=next; round++;
+      }
+      return { recipe:{ matches, groups:[] } };
+    } },
 ];
 function modeById(id){ return MODES.find(m=>m.id===id); }
 
@@ -1845,6 +2049,11 @@ function syncModeUi(){
     else if(mode.id==="ko15"){ msg=`16er-K.-o.-Raster · 15 Spieler · Freilos für Setz. 1 · jeder Platz 1–15 wird ausgespielt`; }
     else if(mode.id==="ko16"){ msg=`16er-K.-o.-Raster · 16 Spieler · keine Freilose · jeder Platz 1–16 wird ausgespielt`; }
     else if(mode.id==="grp17"){ msg=`17 Spieler · 1. Runde → Gruppen A–C (Sieger) & D–E (Verlierer) → Platzierung 1–17`; }
+    else if(mode.id==="grp18"){ msg=`18 Spieler · 1. Runde → Gruppen A–C (Sieger) & D–F (Verlierer) → Platzierung 1–18`; }
+    else if(mode.id==="ko19"){ msg=`19 Spieler · Quali (Setz. 12–19) → 16er-K.-o. (Platz 1–15) + Trostrunde (Platz 16–19)`; }
+    else if(mode.id==="ko20"){ msg=`20 Spieler · Quali (Setz. 13–20) → 16er-K.-o. (Platz 1–16) + Trostrunde (Platz 17–20)`; }
+    else if(mode.id==="ko21"){ msg=`21 Spieler · Quali (Setz. 12–21) → 16er-K.-o. (Platz 1–16) + Trostrunde (Platz 17–21)`; }
+    else if(mode.id==="ko32"){ msg=`32er-K.-o. · 80 Spiele über 5 Runden · jeder Platz 1–32 wird ausgespielt`; }
     else msg=`Eine Gruppe mit ${use} Spielern · ${use*(use-1)/2} Spiele`;
   }
   const h=$("#grHint"); h.className="msg-box ok"; h.textContent=msg;
@@ -1997,21 +2206,9 @@ async function deleteGroup(id){
 // srcSpec: {seed:N} | {bye:true} | {m:key,t:'winner'|'loser'} | {g:groupKey,place:N}
 async function buildRecipe(recipe, parts){
   const gid={}, mid={};
-  // Phase 1: Hüllen anlegen (für IDs)
-  for(const g of recipe.groups||[]){
-    const {data,error}=await sb.from("groups").insert({
-      event_id:currentEvent.id, name:g.name, format:"round_robin",
-      size:g.sources.length, stage:g.stage||"prelim", sort_order:g.sort||0
-    }).select().single();
-    if(error) throw error; gid[g.key]=data.id;
-  }
-  for(const m of recipe.matches||[]){
-    const {data,error}=await sb.from("matches").insert({
-      event_id:currentEvent.id, phase:"placement", label:m.label, sort_order:m.sort||0, status:"pending"
-    }).select().single();
-    if(error) throw error; mid[m.key]=data.id;
-  }
-  // Quelle -> Feldwerte für eine Spielseite
+  (recipe.groups||[]).forEach(g=> gid[g.key]=crypto.randomUUID());
+  (recipe.matches||[]).forEach(m=> mid[m.key]=crypto.randomUUID());
+
   const sideFields=(spec, side)=>{
     const f={};
     if(!spec) return f;
@@ -2021,34 +2218,54 @@ async function buildRecipe(recipe, parts){
     else if(spec.g){ f[side+"_src_group"]=gid[spec.g]; f[side+"_src_place"]=spec.place; }
     return f;
   };
-  // Phase 2: Match-Quellen setzen
-  for(const m of recipe.matches||[]){
-    const patch={ ...sideFields(m.home,"home"), ...sideFields(m.away,"away") };
-    if(Object.keys(patch).length) await sb.from("matches").update(patch).eq("id",mid[m.key]);
+  const chunk=async (rows)=>{ for(let i=0;i<rows.length;i+=400){
+    const {error}=await sb.from("matches").insert(rows.slice(i,i+400)); if(error) throw error; } };
+
+  // 1. Gruppen (IDs vorab -> ein Insert)
+  if((recipe.groups||[]).length){
+    const {error}=await sb.from("groups").insert(recipe.groups.map(g=>({
+      id:gid[g.key], event_id:currentEvent.id, name:g.name, format:"round_robin",
+      size:g.sources.length, stage:g.stage||"prelim", sort_order:g.sort||0 })));
+    if(error) throw error;
   }
-  // Phase 2: Gruppen-Mitglieder + Round-Robin-Spiele
+
+  // 2. Standalone-Matches in Abhaengigkeits-Wellen (Selbst-Referenz Sieger/Verlierer)
+  const byKey={}; (recipe.matches||[]).forEach(m=>byKey[m.key]=m);
+  const waveOf={};
+  const waveFor=(m)=>{ if(waveOf[m.key]!=null) return waveOf[m.key];
+    let w=0; [m.home,m.away].forEach(s=>{ if(s&&s.m) w=Math.max(w, waveFor(byKey[s.m])+1); });
+    return waveOf[m.key]=w; };
+  (recipe.matches||[]).forEach(waveFor);
+  const waves={}; (recipe.matches||[]).forEach(m=>{ (waves[waveOf[m.key]]=waves[waveOf[m.key]]||[]).push(m); });
+  for(const w of Object.keys(waves).map(Number).sort((a,b)=>a-b)){
+    await chunk(waves[w].map(m=>({ id:mid[m.key], event_id:currentEvent.id, phase:"placement",
+      label:m.label, sort_order:m.sort||0, status:"pending",
+      ...sideFields(m.home,"home"), ...sideFields(m.away,"away") })));
+  }
+
+  // 3. Gruppen-Mitglieder + Round-Robin-Spiele
+  const gpAll=[]; const rrAll=[];
   for(const g of recipe.groups||[]){
-    const gpRows=g.sources.map((s,i)=>{
+    g.sources.forEach((s,i)=>{
       const row={ group_id:gid[g.key], position:i+1 };
       if(s.seed!=null) row.registration_id = parts[s.seed-1]?parts[s.seed-1].id:null;
       else if(s.m){ row.src_match=mid[s.m]; row.src_type=s.t; }
       else if(s.g){ row.src_group=gid[s.g]; row.src_place=s.place; }
-      return row;
+      gpAll.push(row);
     });
-    if(gpRows.length) await sb.from("group_players").insert(gpRows);
-
     const rounds=roundRobin(g.sources.length);
-    let no=1; const rows=[];
+    let no=1;
     rounds.forEach((rd,ri)=> rd.forEach(([a,b])=>{
       const sa=g.sources[a-1], sb2=g.sources[b-1];
-      const bye = (sa&&sa.bye) || (sb2&&sb2.bye);
-      rows.push({ event_id:currentEvent.id, group_id:gid[g.key], phase:"group", match_no:no, round:ri+1,
-        sort_order:no, status: bye?"done":"pending", is_bye: !!bye,
+      const bye=(sa&&sa.bye)||(sb2&&sb2.bye);
+      rrAll.push({ id:crypto.randomUUID(), event_id:currentEvent.id, group_id:gid[g.key], phase:"group",
+        match_no:no, round:ri+1, sort_order:no, status:bye?"done":"pending", is_bye:!!bye,
         ...sideFields(sa,"home"), ...sideFields(sb2,"away") });
       no++;
     }));
-    if(rows.length) await sb.from("matches").insert(rows);
   }
+  if(gpAll.length){ const {error}=await sb.from("group_players").insert(gpAll); if(error) throw error; }
+  if(rrAll.length){ await chunk(rrAll); }
 }
 
 function regFull(regId){
