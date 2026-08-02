@@ -67,10 +67,11 @@
 <body>
 
 <!-- ============================================================= -->
-<!--  HIER Banner und Sponsoren eintragen.                         -->
-<!--  Bilddateien einfach mit ins GitHub-Verzeichnis hochladen und -->
-<!--  den Dateinamen zwischen die Anführungszeichen schreiben.     -->
-<!--  Leere "" = wird NICHT angezeigt. Link ist optional.          -->
+<!--  Banner & Sponsoren am besten in der App unter                -->
+<!--  Einstellungen -> "Öffentliche Rangliste" eintragen.          -->
+<!--  (Die Werte hier dienen nur als Rückfall, falls nichts in der -->
+<!--   App gesetzt ist.) Bilddateien mit ins GitHub-Verzeichnis    -->
+<!--  hochladen; leere "" = wird nicht angezeigt.                  -->
 <!-- ============================================================= -->
 <script>
 const SITE = {
@@ -221,9 +222,13 @@ function showView(v){
 }
 
 async function load(){
-  renderSite();
-  if(!cfg.url || !cfg.anonKey){ $("#rankingView").innerHTML='<div class="card"><div class="empty">config.js fehlt.</div></div>'; return; }
+  if(!cfg.url || !cfg.anonKey){ renderSite(); $("#rankingView").innerHTML='<div class="card"><div class="empty">config.js fehlt.</div></div>'; return; }
   const sb = supabase.createClient(cfg.url, cfg.anonKey);
+  // Banner & Sponsoren aus den App-Einstellungen (überschreibt die Vorgaben oben)
+  try{ const rs = await sb.from("public_ranking_site").select("value").maybeSingle();
+       if(rs.data && rs.data.value && typeof rs.data.value==="object") window.SITE = Object.assign({}, window.SITE, rs.data.value);
+  }catch(e){}
+  renderSite();
   const res1 = await sb.from("public_ranking_events")
     .select("id,name,event_date,finalized_at")
     .order("event_date",{ascending:false}).order("finalized_at",{ascending:false});

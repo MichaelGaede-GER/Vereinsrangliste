@@ -495,6 +495,13 @@
           <button class="btn btn-primary" id="saveCourtsBtn">Courts speichern</button>
         </div>
       </div>
+
+      <div class="panel">
+        <h3>Öffentliche Rangliste – Banner &amp; Sponsoren</h3>
+        <p class="hint">Lade die Bilddateien mit ins GitHub-Verzeichnis (zu <code>rangliste.html</code>) und trage hier nur die Dateinamen ein (z. B. <code>banner.png</code>) – oder eine komplette Web-Adresse. Leere Felder bleiben auf der Seite unsichtbar. Der Link ist optional.</p>
+        <div id="rsFields"></div>
+        <button class="btn btn-primary" id="saveRankingSiteBtn" style="margin-top:12px">Speichern</button>
+      </div>
     </div>
   </main>
 </div>
@@ -740,6 +747,7 @@ let COURTS = ["1","2","3","4","5","6"];
 let SHOW_BYES = true;
 let GUEST_FEE = 0;
 let TREASURER_EMAIL = "";
+let RANKING_SITE = { banner:"", bannerLink:"", sponsorsLeft:["","","",""], sponsorsLeftLinks:["","","",""], sponsorsRight:["","","",""], sponsorsRightLinks:["","","",""] };
 let RETIRED = new Set();          // regIds, die aufgegeben haben (aktuelles Event)
 const CRIT_LABELS = { match_points:"Spielpunkte", h2h:"Direkter Vergleich", sets:"Sätze", balls:"Bälle" };
 
@@ -1162,6 +1170,38 @@ async function loadSettings(){
   const {data:te}=await sb.from("app_settings").select("value").eq("key","treasurer_email").maybeSingle();
   TREASURER_EMAIL = te?.value||"";
   if($("#treasurerEmail")) $("#treasurerEmail").value = TREASURER_EMAIL;
+
+  const {data:rs}=await sb.from("app_settings").select("value").eq("key","ranking_site").maybeSingle();
+  if(rs?.value && typeof rs.value==="object"){ RANKING_SITE = Object.assign(RANKING_SITE, rs.value); }
+  renderRankingSiteInputs();
+}
+function renderRankingSiteInputs(){
+  const box=$("#rsFields"); if(!box) return;
+  const S=RANKING_SITE;
+  const pair=(imgVal,linkVal,imgId,linkId,ph)=>`
+    <div class="row" style="margin-bottom:8px">
+      <div class="grow"><input id="${imgId}" class="field" placeholder="${ph}" value="${esc(imgVal||"")}"></div>
+      <div class="grow"><input id="${linkId}" class="field" placeholder="Link (optional)" value="${esc(linkVal||"")}"></div>
+    </div>`;
+  let h=`<label class="lbl">Banner (oben, volle Breite)</label>`+pair(S.banner,S.bannerLink,"rsBanner","rsBannerLink","banner.png");
+  h+=`<label class="lbl" style="margin-top:12px">Sponsoren links (bis zu 4)</label>`;
+  for(let i=0;i<4;i++) h+=pair(S.sponsorsLeft[i],S.sponsorsLeftLinks[i],"rsL"+i,"rsLu"+i,"logo-links-"+(i+1)+".png");
+  h+=`<label class="lbl" style="margin-top:12px">Sponsoren rechts (bis zu 4)</label>`;
+  for(let i=0;i<4;i++) h+=pair(S.sponsorsRight[i],S.sponsorsRightLinks[i],"rsR"+i,"rsRu"+i,"logo-rechts-"+(i+1)+".png");
+  box.innerHTML=h;
+}
+async function saveRankingSite(){
+  const g=id=>$("#"+id)?$("#"+id).value.trim():"";
+  RANKING_SITE = {
+    banner:g("rsBanner"), bannerLink:g("rsBannerLink"),
+    sponsorsLeft:[g("rsL0"),g("rsL1"),g("rsL2"),g("rsL3")],
+    sponsorsLeftLinks:[g("rsLu0"),g("rsLu1"),g("rsLu2"),g("rsLu3")],
+    sponsorsRight:[g("rsR0"),g("rsR1"),g("rsR2"),g("rsR3")],
+    sponsorsRightLinks:[g("rsRu0"),g("rsRu1"),g("rsRu2"),g("rsRu3")]
+  };
+  const {error}=await sb.from("app_settings").upsert({key:"ranking_site",value:RANKING_SITE,updated_at:new Date().toISOString()});
+  if(error){ toast(error.message,true); return; }
+  toast("Banner & Sponsoren gespeichert.");
 }
 function renderCourtsList(){
   const el=$("#courtsList"); if(!el) return;
@@ -1206,6 +1246,7 @@ $("#addCourtBtn").addEventListener("click", ()=>{
 });
 $("#newCourtName").addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); $("#addCourtBtn").click(); } });
 $("#saveCourtsBtn").addEventListener("click", saveCourts);
+$("#saveRankingSiteBtn").addEventListener("click", saveRankingSite);
 $("#saveGuestFeeBtn").addEventListener("click", async ()=>{
   GUEST_FEE = parseFloat($("#guestFee").value)||0;
   const {error}=await sb.from("app_settings").upsert({key:"guest_fee",value:GUEST_FEE,updated_at:new Date().toISOString()});
