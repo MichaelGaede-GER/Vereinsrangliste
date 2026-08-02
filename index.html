@@ -1382,6 +1382,42 @@ const MODES=[
         {key:"m406",label:"406 · Platz 11–12",home:{m:"m305",t:"loser"},  away:{m:"m306",t:"loser"}},
       ]};
     } },
+  { id:"ko14", label:"14er K.-o. mit Platzierung 1–14 (14 Teilnehmer)", min:14, max:14, sizable:false,
+    build(parts){
+      return { groups:[], finalGroups:[], placements:[], bracket:[
+        {key:"m101",label:"101 · 1. Runde", home:{seed:1},  away:{bye:true}},
+        {key:"m102",label:"102 · 1. Runde", home:{seed:9},  away:{seed:8}},
+        {key:"m103",label:"103 · 1. Runde", home:{seed:5},  away:{seed:12}},
+        {key:"m104",label:"104 · 1. Runde", home:{seed:13}, away:{seed:4}},
+        {key:"m105",label:"105 · 1. Runde", home:{seed:3},  away:{seed:14}},
+        {key:"m106",label:"106 · 1. Runde", home:{seed:11}, away:{seed:6}},
+        {key:"m107",label:"107 · 1. Runde", home:{seed:7},  away:{seed:10}},
+        {key:"m108",label:"108 · 1. Runde", home:{seed:2},  away:{bye:true}},
+        {key:"m201",label:"201 · 2. Runde", home:{m:"m101",t:"winner"}, away:{m:"m102",t:"winner"}},
+        {key:"m202",label:"202 · 2. Runde", home:{m:"m103",t:"winner"}, away:{m:"m104",t:"winner"}},
+        {key:"m203",label:"203 · 2. Runde", home:{m:"m105",t:"winner"}, away:{m:"m106",t:"winner"}},
+        {key:"m204",label:"204 · 2. Runde", home:{m:"m107",t:"winner"}, away:{m:"m108",t:"winner"}},
+        {key:"m205",label:"205 · 2. Runde (9–16)", home:{m:"m101",t:"loser"}, away:{m:"m102",t:"loser"}},
+        {key:"m206",label:"206 · 2. Runde (9–16)", home:{m:"m103",t:"loser"}, away:{m:"m104",t:"loser"}},
+        {key:"m207",label:"207 · 2. Runde (9–16)", home:{m:"m105",t:"loser"}, away:{m:"m106",t:"loser"}},
+        {key:"m208",label:"208 · 2. Runde (9–16)", home:{m:"m107",t:"loser"}, away:{m:"m108",t:"loser"}},
+        {key:"m301",label:"301 · Halbfinale", home:{m:"m201",t:"winner"}, away:{m:"m202",t:"winner"}},
+        {key:"m302",label:"302 · Halbfinale", home:{m:"m203",t:"winner"}, away:{m:"m204",t:"winner"}},
+        {key:"m303",label:"303 · Platz 5–8",  home:{m:"m201",t:"loser"},  away:{m:"m202",t:"loser"}},
+        {key:"m304",label:"304 · Platz 5–8",  home:{m:"m203",t:"loser"},  away:{m:"m204",t:"loser"}},
+        {key:"m305",label:"305 · Platz 9–12", home:{m:"m205",t:"winner"}, away:{m:"m206",t:"winner"}},
+        {key:"m306",label:"306 · Platz 9–12", home:{m:"m207",t:"winner"}, away:{m:"m208",t:"winner"}},
+        {key:"m307",label:"307 · Platz 13–14",home:{m:"m205",t:"loser"},  away:{m:"m206",t:"loser"}},
+        {key:"m308",label:"308 · Platz 13–14",home:{m:"m207",t:"loser"},  away:{m:"m208",t:"loser"}},
+        {key:"m401",label:"401 · Finale (Platz 1–2)", home:{m:"m301",t:"winner"}, away:{m:"m302",t:"winner"}},
+        {key:"m402",label:"402 · Platz 3–4",  home:{m:"m301",t:"loser"},  away:{m:"m302",t:"loser"}},
+        {key:"m403",label:"403 · Platz 5–6",  home:{m:"m303",t:"winner"}, away:{m:"m304",t:"winner"}},
+        {key:"m404",label:"404 · Platz 7–8",  home:{m:"m303",t:"loser"},  away:{m:"m304",t:"loser"}},
+        {key:"m405",label:"405 · Platz 9–10", home:{m:"m305",t:"winner"}, away:{m:"m306",t:"winner"}},
+        {key:"m406",label:"406 · Platz 11–12",home:{m:"m305",t:"loser"},  away:{m:"m306",t:"loser"}},
+        {key:"m407",label:"407 · Platz 13–14",home:{m:"m307",t:"winner"}, away:{m:"m308",t:"winner"}},
+      ]};
+    } },
 ];
 function modeById(id){ return MODES.find(m=>m.id===id); }
 
@@ -1703,6 +1739,7 @@ function syncModeUi(){
     else if(mode.id==="duo5"){ const n=Math.min(seeded,10); const byes=10-n; msg=`2 Gruppen à 5 · ${n} Spieler${byes?` · ${byes} Freilos`:""} · Platzierung überkreuz (1–2 … 9–10)`; }
     else if(mode.id==="quad3"){ const n=Math.min(seeded,12); const byes=12-n; msg=`4 Gruppen à 3 · ${n} Spieler${byes?` · Freilos in Gruppe A`:""} · Halbfinals + Platzierung 1–12`; }
     else if(mode.id==="ko13"){ msg=`16er-K.-o.-Raster · 13 Spieler · Freilose für Setz. 1–3 · jeder Platz 1–13 wird ausgespielt`; }
+    else if(mode.id==="ko14"){ msg=`16er-K.-o.-Raster · 14 Spieler · Freilose für Setz. 1–2 · jeder Platz 1–14 wird ausgespielt`; }
     else msg=`Eine Gruppe mit ${use} Spielern · ${use*(use-1)/2} Spiele`;
   }
   const h=$("#grHint"); h.className="msg-box ok"; h.textContent=msg;
