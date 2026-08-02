@@ -74,16 +74,11 @@
 <!--  hochladen; leere "" = wird nicht angezeigt.                  -->
 <!-- ============================================================= -->
 <script>
-const SITE = {
+window.SITE = {
   banner: "",           // z. B. "banner.png"  — Bild ganz oben; leer lassen für keins
   bannerLink: "",       // optionaler Link beim Klick auf den Banner
-
-  // Bis zu 4 Sponsoren-Logos LINKS:
   sponsorsLeft:  ["", "", "", ""],
-  // optionale Links dazu (gleiche Reihenfolge):
   sponsorsLeftLinks:  ["", "", "", ""],
-
-  // Bis zu 4 Sponsoren-Logos RECHTS:
   sponsorsRight: ["", "", "", ""],
   sponsorsRightLinks: ["", "", "", ""],
 };
@@ -226,7 +221,9 @@ async function load(){
   const sb = supabase.createClient(cfg.url, cfg.anonKey);
   // Banner & Sponsoren aus den App-Einstellungen (überschreibt die Vorgaben oben)
   try{ const rs = await sb.from("public_ranking_site").select("value").maybeSingle();
-       if(rs.data && rs.data.value && typeof rs.data.value==="object") window.SITE = Object.assign({}, window.SITE, rs.data.value);
+       let v = rs.data ? rs.data.value : null;
+       if(typeof v==="string"){ try{ v=JSON.parse(v); }catch(e){} }
+       if(v && typeof v==="object") window.SITE = Object.assign({}, window.SITE, v);
   }catch(e){}
   renderSite();
   const res1 = await sb.from("public_ranking_events")
