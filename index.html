@@ -1699,7 +1699,7 @@ const MODES=[
         ]
       }};
     } },
-  { id:"ko32", label:"32er K.-o. mit voller Platzierung 1–32 (32 Teilnehmer)", min:32, max:32, sizable:false,
+  { id:"ko32", label:"32er K.-o. mit voller Platzierung (22–32 Teilnehmer)", min:22, max:32, sizable:false,
     build(parts){
       // Standard-32er-Setzungsreihenfolge
       const order=[1,32,16,17,9,24,8,25,5,28,12,21,13,20,4,29,3,30,14,19,11,22,6,27,7,26,10,23,15,18,2,31];
@@ -2053,7 +2053,7 @@ function syncModeUi(){
     else if(mode.id==="ko19"){ msg=`19 Spieler · Quali (Setz. 12–19) → 16er-K.-o. (Platz 1–15) + Trostrunde (Platz 16–19)`; }
     else if(mode.id==="ko20"){ msg=`20 Spieler · Quali (Setz. 13–20) → 16er-K.-o. (Platz 1–16) + Trostrunde (Platz 17–20)`; }
     else if(mode.id==="ko21"){ msg=`21 Spieler · Quali (Setz. 12–21) → 16er-K.-o. (Platz 1–16) + Trostrunde (Platz 17–21)`; }
-    else if(mode.id==="ko32"){ msg=`32er-K.-o. · 80 Spiele über 5 Runden · jeder Platz 1–32 wird ausgespielt`; }
+    else if(mode.id==="ko32"){ const n=Math.min(seeded,32); const byes=32-n; msg=`32er-K.-o.-Raster · ${n} Spieler${byes?` · ${byes} Freilos`:""} · volle Platzierung 1–${n}`; }
     else msg=`Eine Gruppe mit ${use} Spielern · ${use*(use-1)/2} Spiele`;
   }
   const h=$("#grHint"); h.className="msg-box ok"; h.textContent=msg;
