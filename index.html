@@ -673,6 +673,12 @@
         <div><label class="lbl">Reihenfolge</label><input id="sOrder" class="field mono" type="number"></div>
         <div><label class="lbl">Teilnahmegebühr (€)</label><input id="sFee" class="field mono" type="number" step="0.50" min="0" placeholder="0"></div>
       </div>
+      <label class="lbl" style="margin-top:14px">Standard-Zahlungsart (wird bei Anmeldung übernommen)</label>
+      <select id="sPay" class="field">
+        <option value="">– keine Vorgabe (offen)</option>
+        <option value="cash">bar</option>
+        <option value="account">Kontoabbuchung</option>
+      </select>
     </div>
     <div class="modal-foot">
       <button class="btn btn-danger" id="deleteStatusBtn">Löschen</button>
@@ -842,6 +848,7 @@ function renderStatusList(){
     <span class="swatch" style="background:${s.color}"></span>
     <span class="sname">${esc(s.name)}</span>
     <span class="sord mono">${Number(s.fee||0).toLocaleString("de-DE",{minimumFractionDigits:2})} €</span>
+    <span class="sord" style="font-size:12px;color:var(--muted)">${s.default_payment==="cash"?"bar":s.default_payment==="account"?"Konto":"offen"}</span>
     <span class="sord mono">#${s.sort_order}</span>
     <button class="btn btn-ghost btn-sm" data-edit-status="${s.id}">Bearbeiten</button></div>`).join("");
   box.querySelectorAll("[data-edit-status]").forEach(b=>b.addEventListener("click",()=>openStatusModal(b.dataset.editStatus)));
@@ -854,13 +861,13 @@ $("#addStatusBtn").addEventListener("click", async ()=>{
   $("#newStatusName").value=""; await loadStatuses(); toast("Status hinzugefügt.");
 });
 function openStatusModal(id){ const s=statusById(id); if(!s) return;
-  $("#sId").value=s.id; $("#sName").value=s.name; $("#sColor").value=s.color; $("#sOrder").value=s.sort_order; $("#sFee").value=s.fee??0;
+  $("#sId").value=s.id; $("#sName").value=s.name; $("#sColor").value=s.color; $("#sOrder").value=s.sort_order; $("#sFee").value=s.fee??0; $("#sPay").value=s.default_payment||"";
   $("#statusModal").classList.remove("hidden"); }
 document.querySelectorAll("[data-close-status]").forEach(b=>b.addEventListener("click",()=>$("#statusModal").classList.add("hidden")));
 $("#saveStatusBtn").addEventListener("click", async ()=>{
   const id=$("#sId").value, name=$("#sName").value.trim();
   if(!name){ toast("Name darf nicht leer sein.",true); return; }
-  const {error}=await sb.from("membership_status").update({name,color:$("#sColor").value,sort_order:parseInt($("#sOrder").value)||0,fee:parseFloat($("#sFee").value)||0}).eq("id",id);
+  const {error}=await sb.from("membership_status").update({name,color:$("#sColor").value,sort_order:parseInt($("#sOrder").value)||0,fee:parseFloat($("#sFee").value)||0,default_payment:$("#sPay").value||null}).eq("id",id);
   if(error){ toast(error.message,true); return; }
   $("#statusModal").classList.add("hidden"); await loadStatuses(); renderPlayers(); toast("Status gespeichert.");
 });
@@ -1145,7 +1152,9 @@ function renderRegPicker(q){
   box.querySelectorAll("[data-addp]").forEach(el=>el.addEventListener("click",()=>addRegistration(el.dataset.addp)));
 }
 async function addRegistration(playerId){
-  const {error}=await sb.from("registrations").insert({ event_id:currentEvent.id, player_id:playerId, source:"admin", status:"confirmed" });
+  const p=PLAYERS.find(x=>x.id===playerId); const s=p?statusById(p.membership_status_id):null;
+  const pm=(s&&s.default_payment)?s.default_payment:null;
+  const {error}=await sb.from("registrations").insert({ event_id:currentEvent.id, player_id:playerId, source:"admin", status:"confirmed", payment_method:pm });
   if(error){ toast(error.message.includes("duplicate")?"Spieler ist bereits angemeldet.":error.message,true); return; }
   $("#regModal").classList.add("hidden"); await loadEvents(); await openEvent(currentEvent.id); toast("Spieler hinzugefügt.");
 }

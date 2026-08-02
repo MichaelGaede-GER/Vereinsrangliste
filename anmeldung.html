@@ -331,6 +331,7 @@ async function submit(){
   if(mode==="member"){
     if(!selectedPlayer){ showMsg("Bitte wähle deinen Namen aus der Liste."); return; }
     rec.player_id = selectedPlayer.id;
+    if(selectedPlayer.status_default_payment) rec.payment_method = selectedPlayer.status_default_payment;
   }else{
     const f = $("#gFirst").value.trim(), l = $("#gLast").value.trim();
     if(!f || !l){ showMsg("Bitte Vor- und Nachname angeben."); return; }
