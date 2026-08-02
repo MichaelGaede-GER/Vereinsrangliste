@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Live-Anzeige · Vereinsrangliste Maintal</title>
+<style>
+  :root{
+    --bg:#0e1522; --panel:#152033; --panel2:#1c2a42; --ink:#f3f7ff; --muted:#8ea3c4;
+    --accent:#3b82f6; --court:#16a34a; --prep:#b45309; --line:#26364f;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  header{display:flex;align-items:baseline;justify-content:space-between;padding:20px 28px;border-bottom:1px solid var(--line)}
+  header h1{font-size:22px;margin:0;font-weight:800;letter-spacing:.3px}
+  header .ev{color:var(--muted);font-size:15px}
+  header .clock{font-variant-numeric:tabular-nums;color:var(--muted);font-size:15px}
+  .wrap{display:grid;grid-template-columns:1fr 1fr;gap:22px;padding:22px 28px}
+  @media (max-width:900px){ .wrap{grid-template-columns:1fr} }
+  .col h2{font-size:16px;text-transform:uppercase;letter-spacing:1.5px;margin:0 0 12px;display:flex;align-items:center;gap:10px}
+  .dot{width:12px;height:12px;border-radius:50%}
+  .dot.court{background:var(--court)} .dot.prep{background:var(--prep)}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:12px;display:flex;align-items:center;gap:16px}
+  .card.court{border-left:6px solid var(--court)}
+  .card.prep{border-left:6px solid var(--prep)}
+  .courtbadge{flex:0 0 auto;min-width:74px;height:74px;border-radius:12px;background:var(--panel2);
+    display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .courtbadge .lbl{font-size:10px;letter-spacing:1px;color:var(--muted);text-transform:uppercase}
+  .courtbadge .num{font-size:30px;font-weight:800;line-height:1}
+  .players{flex:1;min-width:0}
+  .players .vs-row{display:flex;align-items:center;gap:12px;font-size:22px;font-weight:700}
+  .players .vs-row .p{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .players .vs-row .p.away{text-align:right}
+  .players .vs-row .vs{color:var(--muted);font-size:15px;font-weight:600}
+  .players .meta{color:var(--muted);font-size:13px;margin-top:4px}
+  .empty{color:var(--muted);padding:30px;text-align:center;border:1px dashed var(--line);border-radius:14px}
+  .login{max-width:360px;margin:12vh auto;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:26px}
+  .login h2{margin:0 0 6px} .login p{color:var(--muted);font-size:14px;margin-top:0}
+  .login input{width:100%;padding:11px 12px;margin-top:10px;border-radius:9px;border:1px solid var(--line);background:var(--panel2);color:var(--ink);font-size:15px}
+  .login button{width:100%;margin-top:14px;padding:12px;border:0;border-radius:9px;background:var(--accent);color:#fff;font-weight:700;font-size:15px;cursor:pointer}
+  .login .err{color:#fca5a5;font-size:13px;margin-top:10px;min-height:16px}
+  .foot{color:var(--muted);font-size:12px;text-align:center;padding:8px}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<div class="foot" id="foot"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const cfg = window.SUPABASE_CONFIG || {};
+const eventId = new URLSearchParams(location.search).get("event");
+let sb = null;
+
+function esc(s){ return (s==null?"":String(s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+function nameOf(regId, regMap, playerMap){
+  const r = regMap[regId]; if(!r) return "—";
+  if(r.player_id){ const p=playerMap[r.player_id]; return p?`${p.last_name}, ${(p.first_name||"")[0]||""}.`:"—"; }
+  return `${r.guest_last_name||""}, ${(r.guest_first_name||"")[0]||""}.`;
+}
+
+function showLogin(msg){
+  $("#app").innerHTML = `
+    <div class="login">
+      <h2>Live-Anzeige</h2>
+      <p>Bitte einmal anmelden, dann bleibt die Anzeige auf diesem Gerät aktiv.</p>
+      <input id="email" type="email" placeholder="E-Mail" autocomplete="username">
+      <input id="pw" type="password" placeholder="Passwort" autocomplete="current-password">
+      <button id="loginBtn">Anmelden</button>
+      <div class="err" id="loginErr">${esc(msg||"")}</div>
+    </div>`;
+  $("#loginBtn").addEventListener("click", async ()=>{
+    $("#loginErr").textContent="…";
+    const { error } = await sb.auth.signInWithPassword({ email:$("#email").value.trim(), password:$("#pw").value });
+    if(error){ $("#loginErr").textContent = "Anmeldung fehlgeschlagen."; return; }
+    load();
+  });
+  $("#pw").addEventListener("keydown", e=>{ if(e.key==="Enter") $("#loginBtn").click(); });
+}
+
+function card(m, regMap, playerMap){
+  const cls = m.display_status==="court" ? "court" : "prep";
+  const home = nameOf(m.home_reg_id, regMap, playerMap);
+  const away = nameOf(m.away_reg_id, regMap, playerMap);
+  const time = m.scheduled_time ? m.scheduled_time.slice(0,5)+" Uhr · " : "";
+  return `<div class="card ${cls}">
+    <div class="courtbadge"><span class="lbl">Court</span><span class="num">${m.court?esc(m.court):"–"}</span></div>
+    <div class="players">
+      <div class="vs-row"><span class="p home">${esc(home)}</span><span class="vs">vs</span><span class="p away">${esc(away)}</span></div>
+      <div class="meta">${time}${esc(m.label||"")}</div>
+    </div>
+  </div>`;
+}
+
+async function load(){
+  // Session vorhanden?
+  const { data:{ session } } = await sb.auth.getSession();
+  if(!session){ showLogin(); return; }
+  if(!eventId){ $("#app").innerHTML = `<div class="empty" style="margin:12vh 28px">Kein Event angegeben. Öffne die Anzeige über den Button „Live-Anzeige öffnen" in der App.</div>`; return; }
+
+  const [{ data:ev }, { data:regs }, { data:players }, { data:matches }] = await Promise.all([
+    sb.from("events").select("name").eq("id",eventId).maybeSingle(),
+    sb.from("registrations").select("id,player_id,guest_first_name,guest_last_name").eq("event_id",eventId),
+    sb.from("players").select("id,first_name,last_name"),
+    sb.from("matches").select("id,label,court,display_status,home_reg_id,away_reg_id,scheduled_time")
+      .eq("event_id",eventId).not("display_status","is",null)
+  ]);
+
+  const regMap={}; (regs||[]).forEach(r=>regMap[r.id]=r);
+  const playerMap={}; (players||[]).forEach(p=>playerMap[p.id]=p);
+  const sortFn=(a,b)=>String(a.court||"~").localeCompare(String(b.court||"~"),"de",{numeric:true});
+  const onCourt=(matches||[]).filter(m=>m.display_status==="court").sort(sortFn);
+  const prep=(matches||[]).filter(m=>m.display_status==="prep").sort(sortFn);
+
+  const now=new Date().toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"});
+  $("#app").innerHTML = `
+    <header>
+      <div><h1>Spielplan</h1><div class="ev">${esc(ev?.name||"")}</div></div>
+      <div class="clock">Aktualisiert ${now} · alle 10 s</div>
+    </header>
+    <div class="wrap">
+      <div class="col">
+        <h2><span class="dot court"></span>Auf dem Court</h2>
+        ${onCourt.length ? onCourt.map(m=>card(m,regMap,playerMap)).join("") : `<div class="empty">Zurzeit kein Spiel auf dem Court.</div>`}
+      </div>
+      <div class="col">
+        <h2><span class="dot prep"></span>In Vorbereitung</h2>
+        ${prep.length ? prep.map(m=>card(m,regMap,playerMap)).join("") : `<div class="empty">Keine Spiele in Vorbereitung.</div>`}
+      </div>
+    </div>`;
+  $("#foot").textContent = "Vereinsrangliste Maintal";
+
+  // in 10 Sekunden neu laden
+  clearTimeout(window.__t); window.__t = setTimeout(()=>location.reload(), 10000);
+}
+
+if(!cfg.url || !cfg.anonKey){
+  $("#app").innerHTML = `<div class="empty" style="margin:12vh 28px">config.js fehlt oder ist nicht ausgefüllt.</div>`;
+}else{
+  sb = supabase.createClient(cfg.url, cfg.anonKey);
+  load();
+}
+</script>
+</body>
+</html>

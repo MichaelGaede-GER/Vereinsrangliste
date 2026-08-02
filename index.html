@@ -381,6 +381,7 @@
         <div class="page-head" style="margin-bottom:14px">
           <div style="display:flex;align-items:center;gap:12px"><h2 style="font-size:18px">Spielplan</h2></div>
           <div style="display:flex;gap:8px">
+            <button class="btn btn-sm" id="openBoardBtn">Live-Anzeige öffnen ↗</button>
             <button class="btn btn-sm hidden" id="resetTournBtn">Turnier zurücksetzen</button>
             <button class="btn btn-primary btn-sm" id="addGroupBtn">Turnier aufsetzen</button>
           </div>
@@ -452,6 +453,16 @@
         <div class="add-status-row" style="align-items:flex-end">
           <div style="max-width:160px"><label class="lbl">Punkte pro Sieg</label><input id="ppw" class="field mono" type="number" min="1" value="2"></div>
           <button class="btn btn-primary" id="saveStandingsBtn">Wertung speichern</button>
+        </div>
+      </div>
+      <div class="panel">
+        <h3>Courts</h3>
+        <p class="hint">Lege die verfügbaren Courts an. Sie erscheinen als Auswahl neben jedem Spiel im Spielplan.</p>
+        <div class="status-list" id="courtsList"></div>
+        <div class="add-status-row" style="align-items:flex-end">
+          <div class="grow"><label class="lbl">Neuer Court (Name/Nummer)</label><input id="newCourtName" class="field" placeholder="z. B. 7"></div>
+          <button class="btn" id="addCourtBtn">Hinzufügen</button>
+          <button class="btn btn-primary" id="saveCourtsBtn">Courts speichern</button>
         </div>
       </div>
     </div>
@@ -651,6 +662,7 @@ let signupMode = false, convertRegId = null;
 let seedList = [], pendingProposal = null;
 let GROUPS = [], GPLAYERS = [], MATCHES = [];
 let STANDINGS = { order:["match_points","h2h","sets","balls"], pointsPerWin:2 };
+let COURTS = ["1","2","3","4","5","6"];
 const CRIT_LABELS = { match_points:"Spielpunkte", h2h:"Direkter Vergleich", sets:"Sätze", balls:"Bälle" };
 
 if(window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc =
@@ -1030,6 +1042,25 @@ async function loadSettings(){
   const {data:sc}=await sb.from("app_settings").select("value").eq("key","standings_config").maybeSingle();
   if(sc?.value && Array.isArray(sc.value.order)) STANDINGS=sc.value;
   renderCritList();
+
+  const {data:cc}=await sb.from("app_settings").select("value").eq("key","courts").maybeSingle();
+  if(cc?.value && Array.isArray(cc.value) && cc.value.length) COURTS=cc.value.map(String);
+  renderCourtsList();
+}
+function renderCourtsList(){
+  const el=$("#courtsList"); if(!el) return;
+  el.innerHTML=COURTS.map((c,i)=>`
+    <div class="status-item">
+      <span class="sname" style="flex:1">Court ${esc(c)}</span>
+      <button class="btn btn-ghost btn-sm" data-courtdel="${i}">Entfernen</button>
+    </div>`).join("") || `<p class="hint" style="margin:0">Noch keine Courts angelegt.</p>`;
+  el.querySelectorAll("[data-courtdel]").forEach(b=>b.addEventListener("click",()=>{ COURTS.splice(+b.dataset.courtdel,1); renderCourtsList(); }));
+}
+async function saveCourts(){
+  const {error}=await sb.from("app_settings").upsert({key:"courts",value:COURTS,updated_at:new Date().toISOString()});
+  if(error){ toast(error.message,true); return; }
+  toast("Courts gespeichert.");
+  if(currentEvent && (GROUPS.length||MATCHES.length)) renderGroups();
 }
 function renderCritList(){
   $("#critList").innerHTML=STANDINGS.order.map((c,i)=>`
@@ -1052,6 +1083,13 @@ $("#saveStandingsBtn").addEventListener("click", async ()=>{
   toast("Wertung gespeichert.");
   if(currentEvent && GROUPS.length) renderGroups();
 });
+$("#addCourtBtn").addEventListener("click", ()=>{
+  const v=$("#newCourtName").value.trim(); if(!v) return;
+  if(!COURTS.includes(v)) COURTS.push(v);
+  $("#newCourtName").value=""; renderCourtsList();
+});
+$("#newCourtName").addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); $("#addCourtBtn").click(); } });
+$("#saveCourtsBtn").addEventListener("click", saveCourts);
 function renderRankingPreview(url){
   $("#rankingLinkPreview").innerHTML=url?`<a href="${esc(url)}" target="_blank" rel="noopener" style="font-size:13px">PDF öffnen ↗</a>`:"";
 }
@@ -1789,6 +1827,29 @@ function matchOutcome(m){
   }
   return {decided:false, winner:null, loser:null};
 }
+function courtCell(m){
+  const opts=['<option value="">–</option>'].concat(
+    COURTS.map(c=>`<option value="${esc(c)}"${m.court===c?" selected":""}>${esc(c)}</option>`)).join("");
+  return `<td><select class="mini court" data-mid="${m.id}" data-f="court">${opts}</select></td>`;
+}
+function statusCell(m){
+  const s=m.display_status||"";
+  return `<td><select class="mini mstatus" data-mid="${m.id}">
+    <option value=""${s===""?" selected":""}>–</option>
+    <option value="prep"${s==="prep"?" selected":""}>Vorbereitung</option>
+    <option value="court"${s==="court"?" selected":""}>Auf Court</option>
+  </select></td>`;
+}
+async function setDisplayStatus(sel){
+  const m=MATCHES.find(x=>x.id===sel.dataset.mid); if(!m) return;
+  const val=sel.value||null;
+  const patch={ display_status: val };
+  if(m.home_reg_id||m.away_reg_id){ patch.home_reg_id=m.home_reg_id||null; patch.away_reg_id=m.away_reg_id||null; }
+  m.display_status=val;
+  const {error}=await sb.from("matches").update(patch).eq("id",m.id);
+  if(error) toast(error.message,true);
+}
+
 function regShort(regId){
   const r=currentRegs.find(x=>x.id===regId); if(!r) return "—";
   if(r.player_id){ const p=PLAYERS.find(x=>x.id===r.player_id);
@@ -1821,7 +1882,8 @@ function renderGroups(){
 
   $("#groupsContainer").querySelectorAll("[data-delgroup]").forEach(b=>b.addEventListener("click",()=>deleteGroup(b.dataset.delgroup)));
   $("#groupsContainer").querySelectorAll("[data-res]").forEach(b=>b.addEventListener("click",()=>openResultModal(b.dataset.res)));
-  $("#groupsContainer").querySelectorAll("input.court,input.time").forEach(inp=>inp.addEventListener("change",()=>autoSaveField(inp)));
+  $("#groupsContainer").querySelectorAll(".court,.time").forEach(inp=>inp.addEventListener("change",()=>autoSaveField(inp)));
+  $("#groupsContainer").querySelectorAll(".mstatus").forEach(sel=>sel.addEventListener("change",()=>setDisplayStatus(sel)));
 }
 
 function renderGroupBlock(g,need){
@@ -1829,7 +1891,8 @@ function renderGroupBlock(g,need){
   const rows=matches.map(m=>`
     <tr>
       <td class="mno">${m.match_no??""}</td>
-      <td><input class="mini court" data-mid="${m.id}" data-f="court" value="${esc(m.court||"")}" placeholder="Court"></td>
+      ${courtCell(m)}
+      ${statusCell(m)}
       <td><input class="mini time" type="time" data-mid="${m.id}" data-f="time" value="${m.scheduled_time?m.scheduled_time.slice(0,5):""}"></td>
       <td class="who" style="text-align:right">${regShort(m.home_reg_id)}</td>
       <td style="text-align:center;white-space:nowrap">${matchSummary(m)}</td>
@@ -1854,7 +1917,7 @@ function renderGroupBlock(g,need){
     </div>
     <div class="gb-section-title">Spielplan</div>
     <div style="overflow-x:auto"><table class="matches">
-      <thead><tr><th>Nr</th><th>Court</th><th>Zeit</th><th style="text-align:right">Heim</th><th style="text-align:center">Ergebnis</th><th>Gast</th></tr></thead>
+      <thead><tr><th>Nr</th><th>Court</th><th>Status</th><th>Zeit</th><th style="text-align:right">Heim</th><th style="text-align:center">Ergebnis</th><th>Gast</th></tr></thead>
       <tbody>${rows}</tbody>
     </table></div>
     <div class="gb-section-title">Tabelle</div>
@@ -1884,7 +1947,8 @@ function renderFinalBlock(g,need){
     else { cell=`<span style="color:var(--muted)">entfällt</span>`; }
     return `<tr>
       <td class="mno">${m.match_no??""}</td>
-      <td><input class="mini court" data-mid="${m.id}" data-f="court" value="${esc(m.court||"")}" placeholder="Court"></td>
+      ${courtCell(m)}
+      ${statusCell(m)}
       <td><input class="mini time" type="time" data-mid="${m.id}" data-f="time" value="${m.scheduled_time?m.scheduled_time.slice(0,5):""}"></td>
       <td class="who" style="text-align:right">${nm(H)}</td>
       <td style="text-align:center;white-space:nowrap">${cell}</td>
@@ -1901,7 +1965,7 @@ function renderFinalBlock(g,need){
   return `<div class="group-block" data-gid="${g.id}">
     <div class="gb-head"><h3>${esc(g.name)}<span class="gb-sub">${g.size||members.length} Spieler · ${need} Gewinnsätze</span></h3></div>
     <div class="gb-section-title">Spielplan</div>
-    <div style="overflow-x:auto"><table class="matches"><thead><tr><th>Nr</th><th>Court</th><th>Zeit</th><th style="text-align:right">Heim</th><th style="text-align:center">Ergebnis</th><th>Gast</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <div style="overflow-x:auto"><table class="matches"><thead><tr><th>Nr</th><th>Court</th><th>Status</th><th>Zeit</th><th style="text-align:right">Heim</th><th style="text-align:center">Ergebnis</th><th>Gast</th></tr></thead><tbody>${rows}</tbody></table></div>
     <div class="gb-section-title">Tabelle</div>
     <div style="overflow-x:auto"><table class="standings"><thead><tr><th>Pl.</th><th>Spieler</th><th class="st">Sp</th><th class="st">S</th><th class="st">N</th><th class="st">Pkte</th><th class="st">Sätze</th><th class="st">Bälle</th></tr></thead><tbody>${srows}</tbody></table></div>
   </div>`;
@@ -1923,7 +1987,8 @@ function renderStandalone(need, before){
     else { cell=`<span style="color:var(--muted)">entfällt</span>`; }
     return `<tr>
       <td style="font-weight:500">${esc(m.label||"")}</td>
-      <td><input class="mini court" data-mid="${m.id}" data-f="court" value="${esc(m.court||"")}" placeholder="Court"></td>
+      ${courtCell(m)}
+      ${statusCell(m)}
       <td><input class="mini time" type="time" data-mid="${m.id}" data-f="time" value="${m.scheduled_time?m.scheduled_time.slice(0,5):""}"></td>
       <td class="who" style="text-align:right">${homeName}</td>
       <td style="text-align:center;white-space:nowrap">${cell}</td>
@@ -1933,7 +1998,7 @@ function renderStandalone(need, before){
   return `<div class="group-block">
     <div class="gb-head"><h3>${before?"1. Runde":"Platzierungs- &amp; K.-o.-Spiele"}<span class="gb-sub">${need} Gewinnsätze</span></h3></div>
     <div style="overflow-x:auto"><table class="matches">
-      <thead><tr><th>Spiel</th><th>Court</th><th>Zeit</th><th style="text-align:right">Heim</th><th style="text-align:center">Ergebnis</th><th>Gast</th></tr></thead>
+      <thead><tr><th>Spiel</th><th>Court</th><th>Status</th><th>Zeit</th><th style="text-align:right">Heim</th><th style="text-align:center">Ergebnis</th><th>Gast</th></tr></thead>
       <tbody>${rows}</tbody>
     </table></div>
   </div>`;
@@ -2058,6 +2123,10 @@ function syncModeUi(){
   }
   const h=$("#grHint"); h.className="msg-box ok"; h.textContent=msg;
 }
+$("#openBoardBtn").addEventListener("click", ()=>{
+  if(!currentEvent){ toast("Bitte zuerst ein Event öffnen.",true); return; }
+  window.open("anzeige.html?event="+encodeURIComponent(currentEvent.id), "_blank");
+});
 $("#addGroupBtn").addEventListener("click", ()=>{
   if(seedList.length<3){ toast("Es müssen mindestens 3 Spieler gesetzt sein.",true); return; }
   fillModeSelect();
@@ -2291,7 +2360,20 @@ function openResultModal(mid){
       <input class="score setinp" data-si="${i}" data-side="a" type="number" min="0" inputmode="numeric" value="${s[1]??""}"></div>`;
   }
   $("#setRows").innerHTML=html;
-  $("#setRows").querySelectorAll(".setinp").forEach(inp=>inp.addEventListener("input",updateTally));
+  $("#setRows").querySelectorAll(".setinp").forEach(inp=>{
+    inp.addEventListener("input",()=>{
+      // Beim Tippen im ersten Feld automatisch den Gewinner-Wert ins zweite schreiben:
+      // Verlierer 1–9 → 11, 10 → 12, 11 → 13, 12 → 14 … (Sieg mit 2 Punkten Vorsprung)
+      if(inp.dataset.side==="h" && inp.value!==""){
+        const x=parseInt(inp.value);
+        if(!isNaN(x)){
+          const away=$("#setRows").querySelector(`.setinp[data-si="${inp.dataset.si}"][data-side="a"]`);
+          if(away) away.value = x<=9 ? 11 : x+2;
+        }
+      }
+      updateTally();
+    });
+  });
   updateTally();
   $("#resultModal").classList.remove("hidden");
 }
