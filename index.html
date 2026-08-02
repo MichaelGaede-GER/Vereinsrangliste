@@ -1448,12 +1448,13 @@ function regShort(regId){
 async function loadTournament(){
   const {data:g}=await sb.from("groups").select("*").eq("event_id",currentEvent.id).order("sort_order").order("created_at");
   GROUPS=g||[];
+  const {data:mm}=await sb.from("matches").select("*").eq("event_id",currentEvent.id).order("sort_order");
+  MATCHES=mm||[];
   const ids=GROUPS.map(x=>x.id);
   if(ids.length){
     const {data:gp}=await sb.from("group_players").select("*").in("group_id",ids);
-    const {data:mm}=await sb.from("matches").select("*").eq("event_id",currentEvent.id).order("sort_order");
-    GPLAYERS=gp||[]; MATCHES=mm||[];
-  }else{ GPLAYERS=[]; MATCHES=[]; }
+    GPLAYERS=gp||[];
+  }else{ GPLAYERS=[]; }
   renderGroups();
 }
 
