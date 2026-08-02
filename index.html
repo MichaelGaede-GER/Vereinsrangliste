@@ -2405,20 +2405,23 @@ $("#emailPlacementBtn").addEventListener("click", placementEmail);
 
 // ---------- Manuelle Ergebniserfassung / Turnier nachtragen ----------
 let manualRows=[];   // [{playerId}]
-function playerOptions(sel){
+function playerOptions(sel, used){
   const ps=PLAYERS.slice().sort((a,b)=> (a.last_name||"").localeCompare(b.last_name||"","de") || (a.first_name||"").localeCompare(b.first_name||"","de"));
-  return `<option value="">— Spieler wählen —</option>`+ps.map(p=>`<option value="${p.id}"${p.id===sel?" selected":""}>${esc(p.last_name)}, ${esc(p.first_name||"")}</option>`).join("");
+  return `<option value="">— Spieler wählen —</option>`+ps
+    .filter(p=> !(used&&used.has(p.id)) || p.id===sel)
+    .map(p=>`<option value="${p.id}"${p.id===sel?" selected":""}>${esc(p.last_name)}, ${esc(p.first_name||"")}</option>`).join("");
 }
 function renderManualRows(){
   const n=parseInt($("#manParticipants").value)|| manualRows.length || 0;
+  const used=new Set(manualRows.map(r=>r.playerId).filter(Boolean));
   $("#manualRows").innerHTML = manualRows.map((row,i)=>`
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
       <span class="mono" style="width:34px;color:var(--muted);text-align:right">${i+1}.</span>
-      <select class="field manrow" data-i="${i}" style="flex:1">${playerOptions(row.playerId)}</select>
+      <select class="field manrow" data-i="${i}" style="flex:1">${playerOptions(row.playerId, used)}</select>
       <span class="mono" style="width:70px;text-align:right;color:var(--muted)">${eventPoints(i+1, n||manualRows.length).toLocaleString("de-DE")}</span>
       <button class="btn btn-ghost btn-sm" data-delrow="${i}">✕</button>
     </div>`).join("");
-  $("#manualRows").querySelectorAll(".manrow").forEach(s=>s.addEventListener("change",()=>{ manualRows[+s.dataset.i].playerId=s.value; }));
+  $("#manualRows").querySelectorAll(".manrow").forEach(s=>s.addEventListener("change",()=>{ manualRows[+s.dataset.i].playerId=s.value; renderManualRows(); }));
   $("#manualRows").querySelectorAll("[data-delrow]").forEach(b=>b.addEventListener("click",()=>{ manualRows.splice(+b.dataset.delrow,1); renderManualRows(); }));
 }
 async function openManualModal(){
