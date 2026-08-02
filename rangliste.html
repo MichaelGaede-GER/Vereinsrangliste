@@ -33,11 +33,20 @@
   .trend{width:66px;font-variant-numeric:tabular-nums;font-weight:700;white-space:nowrap}
   .trend .up{color:var(--up)} .trend .down{color:var(--down)} .trend .same{color:var(--same)} .trend .new{color:var(--new);font-size:12px}
   .prev{width:70px;text-align:right;color:var(--muted);font-variant-numeric:tabular-nums;font-size:13px}
+  .pname{color:var(--accent);cursor:pointer;font-weight:600}
+  .pname:hover{text-decoration:underline}
   .foot{color:var(--muted);font-size:12px;margin-top:16px;text-align:center}
   .empty{padding:40px;text-align:center;color:var(--muted)}
-  .meta{color:var(--muted);font-size:13px;margin:4px 2px 18px}
   .tourn-head{padding:13px 15px;font-weight:700;font-size:15px;display:flex;justify-content:space-between;align-items:baseline;gap:10px;border-bottom:1px solid var(--border);background:#FAFBFA}
   .tourn-head .date{color:var(--muted);font-size:13px;font-weight:500}
+  /* Modal */
+  .overlay{position:fixed;inset:0;background:rgba(20,30,25,.45);display:flex;align-items:flex-start;justify-content:center;padding:6vh 16px;z-index:50}
+  .overlay.hidden{display:none}
+  .modal{background:var(--surface);border-radius:16px;max-width:560px;width:100%;max-height:86vh;overflow:auto;box-shadow:0 12px 40px rgba(0,0,0,.25)}
+  .modal-head{display:flex;justify-content:space-between;align-items:center;padding:16px 18px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--surface)}
+  .modal-head h3{margin:0;font-size:18px}
+  .modal-head .x{border:0;background:transparent;font-size:24px;line-height:1;cursor:pointer;color:var(--muted)}
+  .modal .mi{padding:6px 18px 14px;color:var(--muted);font-size:13px}
   @media (max-width:560px){ .hide-sm{display:none} td,th{padding:10px 10px} }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -49,7 +58,7 @@
     <h1>Vereinsrangliste</h1>
     <span class="sub" id="updated"></span>
   </header>
-  <p class="sub">Beste 4 Ergebnisse der letzten 10 Ranglistenturniere.</p>
+  <p class="sub">Beste 4 Ergebnisse der letzten 10 Ranglistenturniere. Tipp: auf einen Namen tippen zeigt alle Turniere des Spielers.</p>
 
   <div class="seg" id="seg" style="display:none">
     <button data-view="ranking" class="on">Rangliste</button>
@@ -62,12 +71,23 @@
   <div class="foot">SC Yellow Dot Maintal e.V.</div>
 </div>
 
+<div id="playerModal" class="overlay hidden">
+  <div class="modal">
+    <div class="modal-head"><h3 id="pmName"></h3><button class="x" id="pmClose">&times;</button></div>
+    <div class="mi" id="pmInfo"></div>
+    <div id="pmBody" style="padding:0 0 6px"></div>
+  </div>
+</div>
+
 <script>
 const $ = s => document.querySelector(s);
 const cfg = window.SUPABASE_CONFIG || {};
 function esc(s){ return (s==null?"":String(s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
 function nfmt(n){ return Number(n||0).toLocaleString("de-DE"); }
 function fdate(d){ if(!d) return ""; const p=String(d).slice(0,10).split("-"); return p.length===3?p[2]+"."+p[1]+"."+p[0]:d; }
+
+let ALL_RESULTS=[];      // {event_id,name,rank,points}
+let EVMAP={};            // event_id -> {name,event_date}
 
 function ranking(evIds, resByEvent){
   const byPlayer={};
@@ -86,6 +106,7 @@ function trendCell(name, curPos, prevPos){
   if(d<0)  return '<td class="trend"><span class="down">&#9660; '+(-d)+'</span></td>';
   return '<td class="trend"><span class="same">&#9679;</span></td>';
 }
+function pn(name){ return '<span class="pname" data-player="'+esc(name)+'">'+esc(name)+'</span>'; }
 
 function renderRanking(cur, prevPos){
   if(!cur.length){ $("#rankingView").innerHTML='<div class="card"><div class="empty">Noch keine Spieler in der Wertung.</div></div>'; return; }
@@ -96,7 +117,7 @@ function renderRanking(cur, prevPos){
       '<tr class="'+(i===0?"top1":"")+'">'+
         '<td class="pos">'+(i+1)+'</td>'+
         trendCell(r.name, i+1, prevPos)+
-        '<td>'+esc(r.name)+'</td>'+
+        '<td>'+pn(r.name)+'</td>'+
         '<td class="prev hide-sm">'+(prevPos[r.name]!=null?prevPos[r.name]+".":"&ndash;")+'</td>'+
         '<td class="pts">'+nfmt(r.sum)+'</td>'+
         '<td class="cnt hide-sm">'+r.count+'</td>'+
@@ -111,10 +132,27 @@ function renderTournaments(events, resByEvent){
     return '<div class="card">'+
       '<div class="tourn-head"><span>'+esc(e.name||"Turnier")+'</span><span class="date">'+fdate(e.event_date)+'</span></div>'+
       '<table><thead><tr><th>Platz</th><th>Spieler</th><th class="r">Punkte</th></tr></thead><tbody>'+
-      rows.map(r=>'<tr><td class="pos">'+r.rank+'</td><td>'+esc(r.name)+'</td><td class="pts">'+nfmt(r.points)+'</td></tr>').join("")+
+      rows.map(r=>'<tr><td class="pos">'+r.rank+'</td><td>'+pn(r.name)+'</td><td class="pts">'+nfmt(r.points)+'</td></tr>').join("")+
       '</tbody></table></div>';
   }).join("");
 }
+
+function openPlayer(name){
+  const rows = ALL_RESULTS.filter(r=>r.name===name).map(r=>{
+    const ev=EVMAP[r.event_id]||{}; return { ev:ev.name||"Turnier", date:ev.event_date||"", rank:r.rank, points:Number(r.points) };
+  }).sort((a,b)=> String(b.date).localeCompare(String(a.date)));
+  const best4 = rows.map(r=>r.points).sort((a,b)=>b-a).slice(0,4).reduce((a,b)=>a+b,0);
+  $("#pmName").textContent = name;
+  $("#pmInfo").innerHTML = rows.length? (rows.length+" erfasste Turniere &middot; beste 4: <strong>"+nfmt(best4)+"</strong> Punkte") : "Keine erfassten Turniere.";
+  $("#pmBody").innerHTML = rows.length? (
+    '<table><thead><tr><th>Turnier</th><th class="hide-sm">Datum</th><th class="r">Platz</th><th class="r">Punkte</th></tr></thead><tbody>'+
+    rows.map(r=>'<tr><td>'+esc(r.ev)+'</td><td class="hide-sm" style="color:var(--muted);font-size:13px">'+fdate(r.date)+'</td><td class="pts">'+r.rank+'.</td><td class="pts">'+nfmt(r.points)+'</td></tr>').join("")+
+    '</tbody></table>') : "";
+  $("#playerModal").classList.remove("hidden");
+}
+$("#pmClose").addEventListener("click", ()=>$("#playerModal").classList.add("hidden"));
+$("#playerModal").addEventListener("click", e=>{ if(e.target.id==="playerModal") $("#playerModal").classList.add("hidden"); });
+document.addEventListener("click", e=>{ const el=e.target.closest("[data-player]"); if(el) openPlayer(el.dataset.player); });
 
 function showView(v){
   const on = v==="turniere" ? "turniere":"ranking";
@@ -129,15 +167,17 @@ async function load(){
   const sb = supabase.createClient(cfg.url, cfg.anonKey);
   const res1 = await sb.from("public_ranking_events")
     .select("id,name,event_date,finalized_at")
-    .order("event_date",{ascending:false}).order("finalized_at",{ascending:false}).limit(11);
+    .order("event_date",{ascending:false}).order("finalized_at",{ascending:false});
   if(res1.error){ $("#rankingView").innerHTML='<div class="card"><div class="empty">Fehler beim Laden.</div></div>'; return; }
   const events = res1.data||[];
   if(!events.length){ $("#rankingView").innerHTML='<div class="card"><div class="empty">Noch keine Ranglistenturniere ver&ouml;ffentlicht.</div></div>'; return; }
+  EVMAP={}; events.forEach(e=> EVMAP[e.id]=e);
+
+  const res2 = await sb.from("public_ranking_results").select("event_id,name,rank,points").limit(5000);
+  ALL_RESULTS = res2.data||[];
+  const resByEvent={}; ALL_RESULTS.forEach(r=> (resByEvent[r.event_id]=resByEvent[r.event_id]||[]).push(r));
 
   const ids = events.map(e=>e.id);
-  const res2 = await sb.from("public_ranking_results").select("event_id,name,rank,points").in("event_id",ids);
-  const resByEvent={}; (res2.data||[]).forEach(r=> (resByEvent[r.event_id]=resByEvent[r.event_id]||[]).push(r));
-
   const currentIds = ids.slice(0,10);
   const previousIds = ids.slice(1,11);
   const current = ranking(currentIds, resByEvent);
@@ -151,7 +191,7 @@ async function load(){
   showView(location.hash.replace("#","")||"ranking");
 
   $("#updated").textContent = "Stand: "+new Date().toLocaleDateString("de-DE",{day:"2-digit",month:"long",year:"numeric"});
-  clearTimeout(window.__t); window.__t=setTimeout(()=>location.reload(), 60000);
+  clearTimeout(window.__t); window.__t=setTimeout(()=>{ if($("#playerModal").classList.contains("hidden")) location.reload(); }, 60000);
 }
 load();
 </script>
