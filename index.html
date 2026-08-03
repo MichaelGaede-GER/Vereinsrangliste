@@ -444,6 +444,8 @@
           <div style="display:flex;align-items:center;gap:12px"><h2 style="font-size:18px">Spielplan</h2></div>
           <div style="display:flex;gap:8px;align-items:center">
             <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);cursor:pointer;margin-right:4px">
+              <input type="checkbox" id="autoCourts" style="cursor:pointer" checked> Courts automatisch vergeben</label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);cursor:pointer;margin-right:4px">
               <input type="checkbox" id="hideByes" style="cursor:pointer"> Freilos-Spiele ausblenden</label>
             <button class="btn btn-sm" id="openBoardBtn">Live-Anzeige öffnen ↗</button>
             <button class="btn btn-sm" id="placementBtn">Endplatzierung</button>
@@ -807,6 +809,7 @@ let GROUPS = [], GPLAYERS = [], MATCHES = [];
 let STANDINGS = { order:["match_points","h2h","sets","balls"], pointsPerWin:2 };
 let COURTS = ["1","2","3","4","5","6"];
 let SHOW_BYES = true;
+let AUTO_COURTS = true;      // Courts automatisch vergeben
 let GUEST_FEE = 0;
 let TREASURER_EMAIL = "";
 let RANKING_SITE = { banner:"", bannerLink:"", sponsorsLeft:["","","",""], sponsorsLeftLinks:["","","",""], sponsorsRight:["","","",""], sponsorsRightLinks:["","","",""] };
@@ -1227,6 +1230,9 @@ async function loadSettings(){
   const {data:cc}=await sb.from("app_settings").select("value").eq("key","courts").maybeSingle();
   if(cc?.value && Array.isArray(cc.value) && cc.value.length) COURTS=cc.value.map(String);
   renderCourtsList();
+
+  const {data:ac}=await sb.from("app_settings").select("value").eq("key","auto_courts").maybeSingle();
+  if(ac && typeof ac.value==="boolean"){ AUTO_COURTS=ac.value; if($("#autoCourts")) $("#autoCourts").checked=AUTO_COURTS; }
 
   const {data:gf}=await sb.from("app_settings").select("value").eq("key","guest_fee").maybeSingle();
   GUEST_FEE = Number(gf?.value)||0;
@@ -2120,6 +2126,75 @@ async function setDisplayStatus(sel){
   if(error) toast(error.message,true);
 }
 
+// ---------- Automatischer Court-Planer ----------
+// Ein Spiel ist "spielbereit", wenn beide Seiten echte Spieler sind, es kein
+// Freilos/kampflos ist und noch kein Ergebnis vorliegt.
+function matchReady(m){
+  if(m.is_bye || m.status==="done") return null;
+  const o=matchOutcome(m); if(o.decided) return null;   // Freilos/kampflos/fertig
+  const H=sideReg(m,"home"), A=sideReg(m,"away");
+  if(H.ready && A.ready && H.reg && A.reg && !RETIRED.has(H.reg) && !RETIRED.has(A.reg))
+    return { home:H.reg, away:A.reg };
+  return null;
+}
+async function assignCourts(){
+  if(!AUTO_COURTS || !MATCHES.length || !COURTS.length) return;
+  // Belegte Courts (Spiele „auf Court", noch nicht fertig)
+  const occupied=new Set(MATCHES.filter(m=>m.display_status==="court" && m.status!=="done" && m.court).map(m=>m.court));
+  const freeCourts=COURTS.filter(c=>!occupied.has(c));
+  // Wartende, spielbereite Spiele (nicht auf Court) von oben nach unten
+  const waiting=MATCHES
+    .filter(m=>m.display_status!=="court")
+    .sort((a,b)=>(a.sort_order||0)-(b.sort_order||0))
+    .map(m=>({m, r:matchReady(m)})).filter(x=>x.r);
+  const updates=[]; let fi=0;
+  for(const {m,r} of waiting){
+    if(fi<freeCourts.length){
+      const court=freeCourts[fi++];
+      m.court=court; m.display_status="court"; m.home_reg_id=r.home; m.away_reg_id=r.away;
+      updates.push(sb.from("matches").update({court, display_status:"court", home_reg_id:r.home, away_reg_id:r.away}).eq("id",m.id));
+    }else{
+      // die nächsten Spiele als „Vorbereitung" mit Namen für die Anzeige sichern
+      if(fi>=freeCourts.length && updates.length>freeCourts.length+10) break;
+      if(m.home_reg_id!==r.home || m.away_reg_id!==r.away || m.display_status!=="prep"){
+        m.home_reg_id=r.home; m.away_reg_id=r.away; m.display_status="prep";
+        updates.push(sb.from("matches").update({home_reg_id:r.home, away_reg_id:r.away, display_status:"prep"}).eq("id",m.id));
+      }
+    }
+  }
+  if(updates.length){ try{ await Promise.all(updates); }catch(e){ toast("Court-Planer: "+e.message,true); } }
+  renderGroups();
+}
+// Nach dem Aufsetzen: alle echten Spiele auf „Vorbereitung", dann Courts vergeben
+async function initSchedule(){
+  await sb.from("matches").update({display_status:"prep"}).eq("event_id",currentEvent.id).is("display_status",null).neq("status","done");
+  await loadTournament();
+  await assignCourts();
+}
+
+// Manuelle Court-Übersteuerung: Spiel gezielt auf einen Court setzen
+async function onCourtManual(sel){
+  const m=MATCHES.find(x=>x.id===sel.dataset.mid); if(!m) return;
+  const court=sel.value.trim()||null;
+  const updates=[];
+  if(court){
+    // anderen aktuellen Beleger dieses Courts freistellen
+    MATCHES.filter(x=>x.id!==m.id && x.court===court && x.display_status==="court" && x.status!=="done").forEach(x=>{
+      x.court=null; x.display_status="prep";
+      updates.push(sb.from("matches").update({court:null, display_status:"prep"}).eq("id",x.id));
+    });
+    m.court=court; m.display_status="court";
+    const patch={court, display_status:"court"};
+    if(m.home_reg_id||m.away_reg_id){ patch.home_reg_id=m.home_reg_id||null; patch.away_reg_id=m.away_reg_id||null; }
+    updates.push(sb.from("matches").update(patch).eq("id",m.id));
+  }else{
+    m.court=null; m.display_status="prep";
+    updates.push(sb.from("matches").update({court:null, display_status:"prep"}).eq("id",m.id));
+  }
+  try{ await Promise.all(updates); }catch(e){ toast(e.message,true); }
+  renderGroups();
+}
+
 function regShort(regId){
   const r=currentRegs.find(x=>x.id===regId); if(!r) return "—";
   if(r.player_id){ const p=PLAYERS.find(x=>x.id===r.player_id);
@@ -2159,7 +2234,8 @@ function renderGroups(){
 
   $("#groupsContainer").querySelectorAll("[data-delgroup]").forEach(b=>b.addEventListener("click",()=>deleteGroup(b.dataset.delgroup)));
   $("#groupsContainer").querySelectorAll("[data-res]").forEach(b=>b.addEventListener("click",()=>openResultModal(b.dataset.res)));
-  $("#groupsContainer").querySelectorAll(".court,.time").forEach(inp=>inp.addEventListener("change",()=>autoSaveField(inp)));
+  $("#groupsContainer").querySelectorAll(".time").forEach(inp=>inp.addEventListener("change",()=>autoSaveField(inp)));
+  $("#groupsContainer").querySelectorAll(".court").forEach(sel=>sel.addEventListener("change",()=>onCourtManual(sel)));
   $("#groupsContainer").querySelectorAll(".mstatus").forEach(sel=>sel.addEventListener("change",()=>setDisplayStatus(sel)));
 }
 
@@ -2481,6 +2557,11 @@ $("#openBoardBtn").addEventListener("click", ()=>{
   window.open("anzeige.html?event="+encodeURIComponent(currentEvent.id), "_blank");
 });
 $("#hideByes").addEventListener("change", (e)=>{ SHOW_BYES = !e.target.checked; renderGroups(); });
+$("#autoCourts").addEventListener("change", async (e)=>{
+  AUTO_COURTS = e.target.checked;
+  await sb.from("app_settings").upsert({key:"auto_courts",value:AUTO_COURTS,updated_at:new Date().toISOString()});
+  if(AUTO_COURTS && currentEvent && MATCHES.length){ await assignCourts(); toast("Courts automatisch vergeben."); }
+});
 
 let placementCache=null;
 function openPlacementModal(){
@@ -2682,7 +2763,7 @@ $("#createGroupBtn").addEventListener("click", async ()=>{
     if(plan.recipe){
       await buildRecipe(plan.recipe, parts);
       $("#groupModal").classList.add("hidden");
-      await loadTournament();
+      await initSchedule();
       setSubtab("plan");
       toast("Turnier erstellt.");
       return;
@@ -2769,7 +2850,7 @@ $("#createGroupBtn").addEventListener("click", async ()=>{
     }
 
     $("#groupModal").classList.add("hidden");
-    await loadTournament();
+    await initSchedule();
     setSubtab("plan");
     toast("Turnier erstellt.");
   }catch(e){ toast(e.message,true); }
@@ -2910,6 +2991,7 @@ async function retirePlayer(retiredReg, winnerReg){
   if(r) r.retired_at=ts; RETIRED.add(retiredReg);
   $("#resultModal").classList.add("hidden");
   await loadTournament();
+  await assignCourts();
   toast(nm+" hat aufgegeben – Gegner kampflos weiter.");
 }
 
@@ -2944,11 +3026,14 @@ $("#saveResultBtn").addEventListener("click", async ()=>{
   const need=currentEvent.win_sets||3;
   const done=t.hs>=need||t.as>=need;
   const patch={ sets: sets.length?sets:null, home_score:t.hs, away_score:t.as, status: done?"done":"pending" };
+  if(done) patch.display_status=null;                    // fertiges Spiel verlässt den Court
   if(m && (m.home_reg_id||m.away_reg_id)){ patch.home_reg_id=m.home_reg_id||null; patch.away_reg_id=m.away_reg_id||null; }
   const {error}=await sb.from("matches").update(patch).eq("id",resultMid);
   if(error){ toast(error.message,true); return; }
   $("#resultModal").classList.add("hidden");
-  await loadTournament(); setSubtab("plan");
+  await loadTournament();
+  await assignCourts();                                   // freien Court mit nächstem Spiel belegen
+  setSubtab("plan");
   toast("Ergebnis gespeichert.");
 });
 $("#clearResultBtn").addEventListener("click", async ()=>{
