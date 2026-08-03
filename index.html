@@ -2154,12 +2154,18 @@ function sideDisplayText(m, side){
 }
 async function assignCourts(){
   if(!AUTO_COURTS || !MATCHES.length || !COURTS.length) return;
+  const updates=[];
+  // Freilose/kampflose Spiele nie auf der Anzeige lassen (Status leeren)
+  MATCHES.filter(m=>m.display_status && isWalkover(m)).forEach(m=>{
+    m.display_status=null; m.court=null;
+    updates.push(sb.from("matches").update({display_status:null, court:null}).eq("id",m.id));
+  });
   const occupied=new Set(MATCHES.filter(m=>m.display_status==="court" && m.status!=="done" && m.court).map(m=>m.court));
   const freeCourts=COURTS.filter(c=>!occupied.has(c));
   // Kandidaten: kein Freilos/kampflos, nicht fertig, nicht schon auf Court – nach Reihenfolge
   const cand=MATCHES.filter(m=>m.status!=="done" && m.display_status!=="court" && !isWalkover(m))
     .sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
-  const updates=[]; const usedIdx=new Set();
+  const usedIdx=new Set();
   // 1. Freie Courts mit spielbereiten Spielen füllen (von oben)
   let assigned=0;
   for(let i=0;i<cand.length && assigned<freeCourts.length;i++){

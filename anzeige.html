@@ -122,8 +122,10 @@ async function load(){
   const regMap={}; (regs||[]).forEach(r=>regMap[r.id]=r);
   const playerMap={}; (players||[]).forEach(p=>playerMap[p.id]=p);
   const sortFn=(a,b)=>String(a.court||"~").localeCompare(String(b.court||"~"),"de",{numeric:true});
-  const onCourt=(matches||[]).filter(m=>m.display_status==="court").sort(sortFn);
-  const prepAll=(matches||[]).filter(m=>m.display_status==="prep" && (m.home_label || (m.home_reg_id && m.away_reg_id)))
+  const sideOk=(label,reg)=> label ? label!=="Freilos" : !!reg;
+  const bothOk=(m)=> sideOk(m.home_label,m.home_reg_id) && sideOk(m.away_label,m.away_reg_id);
+  const onCourt=(matches||[]).filter(m=>m.display_status==="court" && bothOk(m)).sort(sortFn);
+  const prepAll=(matches||[]).filter(m=>m.display_status==="prep" && bothOk(m) && (m.home_label || (m.home_reg_id && m.away_reg_id)))
     .sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
   const prep=prepAll.slice(0, onCourt.length || 4);   // gleiche Anzahl wie aktive Courts
 
