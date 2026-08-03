@@ -458,6 +458,13 @@
           </div>
         </div>
         <div id="groupsContainer"></div>
+        <div id="planFinishBar" class="hidden" style="margin-top:18px;text-align:center">
+          <div class="card" style="padding:20px;display:flex;flex-direction:column;align-items:center;gap:10px">
+            <strong style="font-size:16px">Alle Spiele beendet 🎉</strong>
+            <span style="color:var(--muted);font-size:14px">Das Turnier ist vollständig gespielt. Jetzt die Endplatzierung erstellen.</span>
+            <button class="btn btn-primary" id="finishPlacementBtn" style="font-size:15px;padding:11px 22px">Endplatzierung öffnen ↓</button>
+          </div>
+        </div>
         <div id="groupsEmpty" class="empty card hidden">
           <strong>Turnier noch nicht aufgesetzt</strong>
           Wähle einen Spielmodus — Gruppen, Freilose und Spielplan werden automatisch angelegt.
@@ -2111,6 +2118,7 @@ function statusCell(m){
     <option value=""${s===""?" selected":""}>–</option>
     <option value="prep"${s==="prep"?" selected":""}>Vorbereitung</option>
     <option value="court"${s==="court"?" selected":""}>Auf Court</option>
+    <option value="done"${s==="done"?" selected":""}>Beendet</option>
   </select></td>`;
 }
 function timeCell(m){
@@ -2293,6 +2301,14 @@ function renderGroups(){
   $("#groupsContainer").querySelectorAll(".time").forEach(inp=>inp.addEventListener("change",()=>autoSaveField(inp)));
   $("#groupsContainer").querySelectorAll(".court").forEach(sel=>sel.addEventListener("change",()=>onCourtManual(sel)));
   $("#groupsContainer").querySelectorAll(".mstatus").forEach(sel=>sel.addEventListener("change",()=>setDisplayStatus(sel)));
+
+  // Unten Endplatzierung anbieten, sobald das Turnier vollständig gespielt ist
+  const bar=$("#planFinishBar");
+  if(bar){
+    let complete=false;
+    try{ complete = hasT && computeEventPlacement().complete; }catch(e){ complete=false; }
+    bar.classList.toggle("hidden", !complete);
+  }
 }
 
 function renderGroupBlock(g,need){
@@ -2674,6 +2690,7 @@ async function finalizeEvent(){
   $("#placementModal").classList.add("hidden");
 }
 $("#placementBtn").addEventListener("click", openPlacementModal);
+$("#finishPlacementBtn").addEventListener("click", openPlacementModal);
 $("#emailPlacementBtn").addEventListener("click", placementEmail);
 
 // ---------- Manuelle Ergebniserfassung / Turnier nachtragen ----------
@@ -3082,7 +3099,7 @@ $("#saveResultBtn").addEventListener("click", async ()=>{
   const need=currentEvent.win_sets||3;
   const done=t.hs>=need||t.as>=need;
   const patch={ sets: sets.length?sets:null, home_score:t.hs, away_score:t.as, status: done?"done":"pending" };
-  if(done) patch.display_status=null;                    // fertiges Spiel verlässt den Court
+  if(done) patch.display_status="done";                  // beendet – erscheint nicht mehr auf dem Board
   if(m && (m.home_reg_id||m.away_reg_id)){ patch.home_reg_id=m.home_reg_id||null; patch.away_reg_id=m.away_reg_id||null; }
   const {error}=await sb.from("matches").update(patch).eq("id",resultMid);
   if(error){ toast(error.message,true); return; }
@@ -3094,10 +3111,12 @@ $("#saveResultBtn").addEventListener("click", async ()=>{
 });
 $("#clearResultBtn").addEventListener("click", async ()=>{
   if(!resultMid) return;
-  const {error}=await sb.from("matches").update({ sets:null, home_score:null, away_score:null, status:"pending" }).eq("id",resultMid);
+  const {error}=await sb.from("matches").update({ sets:null, home_score:null, away_score:null, status:"pending", display_status:"prep" }).eq("id",resultMid);
   if(error){ toast(error.message,true); return; }
   $("#resultModal").classList.add("hidden");
-  await loadTournament(); setSubtab("plan");
+  await loadTournament();
+  await assignCourts();
+  setSubtab("plan");
   toast("Ergebnis geleert.");
 });
 
