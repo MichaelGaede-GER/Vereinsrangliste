@@ -2,7 +2,15 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#2E7D4F" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="Rangliste" />
+<meta name="format-detection" content="telephone=no" />
+<link rel="manifest" href="manifest.json" />
+<link rel="apple-touch-icon" href="apple-touch-icon.png" />
 <title>Vereinsrangliste Maintal — Verwaltung</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -221,6 +229,9 @@
   table.matches tr:last-child td{border-bottom:none}
   table.matches tr.byerow{background:#F4F0E7 !important;color:var(--muted)}
   table.matches tr.byerow .who{color:var(--muted)}
+  .seedtag{display:inline-block;min-width:18px;padding:0 5px;margin-right:6px;border-radius:9px;
+    background:var(--ok-soft,#E8F3EC);color:var(--ok,#2E7D4F);font-family:var(--f-mono,monospace);
+    font-size:11px;font-weight:700;text-align:center;line-height:17px;vertical-align:baseline}
   table.matches .mno{font-family:var(--f-mono);color:var(--muted);font-size:12px;width:34px}
   table.matches .who{white-space:nowrap}
   table.matches .vs{color:var(--muted);text-align:center;width:24px}
@@ -241,9 +252,54 @@
   .gb-foot{padding:14px 18px;display:flex;justify-content:flex-end;gap:10px;border-top:1px solid var(--border)}
 
   @media(max-width:640px){
-    .actions-cell{text-align:left}
+    main{padding:16px 12px}
+    .tabs,header.topbar{padding-left:12px;padding-right:12px}
+    /* iOS: verhindert automatisches Hineinzoomen beim Antippen von Feldern */
+    input,select,textarea,.field{font-size:16px}
+    /* Kopfzeilen mit Buttons brechen um, Buttons füllen die Breite */
+    .page-head{flex-wrap:wrap;gap:10px}
+    .page-head>div{width:100%}
+    .page-head>div[style*="flex"]{flex-wrap:wrap}
+    .page-head .btn{flex:1 1 auto}
+    .detail-head{flex-wrap:wrap;gap:10px}
+    .detail-head>div[style*="flex"]{width:100%}
+    .detail-head .btn{flex:1}
+    /* Navigation & Unterreiter horizontal scrollbar statt abgeschnitten */
+    .tabs{overflow-x:auto;-webkit-overflow-scrolling:touch}
+    .tabs .tab{white-space:nowrap}
+    .subtabs{overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch}
+    /* breite Tabellen scrollen innerhalb der Karte */
+    .card{overflow-x:auto}
     thead th.hide-sm,tbody td.hide-sm{display:none}
-    main{padding:20px 14px}.tabs,header.topbar{padding-left:14px;padding-right:14px}
+    .actions-cell{text-align:left}
+    /* Info-Streifen & Werkzeugleisten umbrechen/stapeln */
+    .info-strip{flex-wrap:wrap;gap:10px}
+    .toolbar{flex-wrap:wrap}
+    .toolbar select,.toolbar .field{max-width:none;width:100%}
+    /* Event-Kacheln volle Breite */
+    .events-grid{grid-template-columns:1fr}
+    /* kleine Auswahlfelder (Court/Status/Zeit) tappbar */
+    .mini{min-height:36px;font-size:15px}
+    .mini.court{width:100%;min-width:60px}
+    /* Modals fast randlos, gut scrollbar, Buttons breit */
+    .overlay{padding:10px}
+    .modal{max-height:94vh}
+    .modal-body{padding:16px}
+    .modal-head,.modal-foot{padding:14px 16px}
+    .modal-foot{flex-wrap:wrap-reverse}
+    .modal-foot .btn{flex:1 1 auto}
+    /* Anmeldelink umbrechbar */
+    .link-box{flex-wrap:wrap}
+    /* mehrspaltige Eingabe-Zeilen stapeln (Modals & Panels) */
+    .row{flex-wrap:wrap;gap:10px}
+    .row>div{width:100%;flex:1 1 100%}
+    .add-status-row{flex-wrap:wrap}
+    .add-status-row>div{width:100%}
+    .add-status-row .btn{flex:1 1 auto}
+    .panel{padding:16px}
+    /* Setz-/Ergebnis-Buttons gut greifbar */
+    .btn{min-height:38px}
+    .btn-ghost,.btn-danger{min-height:34px}
   }
 </style>
 </head>
@@ -2070,6 +2126,13 @@ function regShort(regId){
     return p?`${esc(p.last_name)}, ${esc((p.first_name||"")[0]||"")}.`:"(gelöscht)"; }
   return `${esc(r.guest_last_name||"")}, ${esc((r.guest_first_name||"")[0]||"")}.`;
 }
+function seedNo(regId){ const r=currentRegs.find(x=>x.id===regId); return (r && r.seed!=null)?r.seed:null; }
+// Name mit vorangestellter Setzungs-Nummer (zur Kontrolle gegen die Vorlage)
+function regShortS(regId){
+  const n=seedNo(regId);
+  const tag = n!=null ? `<span class="seedtag">${n}</span>` : "";
+  return tag+regShort(regId);
+}
 
 async function loadTournament(){
   const {data:g}=await sb.from("groups").select("*").eq("event_id",currentEvent.id).order("sort_order").order("created_at");
@@ -2105,8 +2168,8 @@ function renderGroupBlock(g,need){
   const matches=all.filter(m=> !m.is_bye || SHOW_BYES);
   const rows=matches.map(m=>{
     const bye=!!m.is_bye;
-    const hn = m.home_reg_id?regShort(m.home_reg_id):"Freilos";
-    const an = m.away_reg_id?regShort(m.away_reg_id):"Freilos";
+    const hn = m.home_reg_id?regShortS(m.home_reg_id):"Freilos";
+    const an = m.away_reg_id?regShortS(m.away_reg_id):"Freilos";
     const cell = bye ? `<span style="color:var(--ok);font-size:13px">kampflos</span>` : matchSummary(m);
     return `
     <tr class="${bye?"byerow":""}">
@@ -2159,7 +2222,7 @@ function renderFinalBlock(g,need){
     m.home_reg_id=H.reg||null; m.away_reg_id=A.reg||null;
     const bye = H.ready && A.ready && !(H.reg && A.reg);
     if(bye && !SHOW_BYES) return "";
-    const nm=(S)=> S.reg?regShort(S.reg):((S.isBye||S.empty)?"Freilos":(S.ready?"—":`<span style="color:var(--muted);font-weight:400">${esc(S.srcLabel)}</span>`));
+    const nm=(S)=> S.reg?regShortS(S.reg):((S.isBye||S.empty)?"Freilos":(S.ready?"—":`<span style="color:var(--muted);font-weight:400">${esc(S.srcLabel)}</span>`));
     let cell;
     if(!H.ready || !A.ready){ cell=`<span style="color:var(--muted);font-size:13px">wartet</span>`; }
     else if(H.reg && A.reg){ cell=matchSummary(m); }
@@ -2198,7 +2261,7 @@ function renderStandalone(need, before){
     m.home_reg_id=H.reg||null; m.away_reg_id=A.reg||null;   // im Speicher auflösen (für Ergebnis-Eingabe)
     const bye = H.ready && A.ready && !(H.reg && A.reg);
     if(bye && !SHOW_BYES) return "";
-    const nm=(S)=> S.reg?regShort(S.reg):((S.isBye||S.empty)?"Freilos":(S.ready?"—":`<span style="color:var(--muted);font-weight:400">${esc(S.srcLabel)}</span>`));
+    const nm=(S)=> S.reg?regShortS(S.reg):((S.isBye||S.empty)?"Freilos":(S.ready?"—":`<span style="color:var(--muted);font-weight:400">${esc(S.srcLabel)}</span>`));
     const homeName=nm(H), awayName=nm(A);
     let cell;
     if(!H.ready || !A.ready){ cell=`<span style="color:var(--muted);font-size:13px">wartet</span>`; }
