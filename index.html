@@ -2874,13 +2874,14 @@ function openResultModal(mid){
   $("#setRows").innerHTML=html;
   $("#setRows").querySelectorAll(".setinp").forEach(inp=>{
     inp.addEventListener("input",()=>{
-      // Beim Tippen im ersten Feld automatisch den Gewinner-Wert ins zweite schreiben:
-      // Verlierer 1–9 → 11, 10 → 12, 11 → 13, 12 → 14 … (Sieg mit 2 Punkten Vorsprung)
-      if(inp.dataset.side==="h" && inp.value!==""){
+      // Egal in welches Feld man die Verlierer-Punkte tippt, ins ANDERE Feld
+      // kommt der Gewinner-Wert: 0–9 → 11, 10 → 12, 11 → 13 … (Sieg mit 2 Punkten Vorsprung)
+      if(inp.value!==""){
         const x=parseInt(inp.value);
         if(!isNaN(x)){
-          const away=$("#setRows").querySelector(`.setinp[data-si="${inp.dataset.si}"][data-side="a"]`);
-          if(away) away.value = x<=9 ? 11 : x+2;
+          const otherSide = inp.dataset.side==="h" ? "a" : "h";
+          const other=$("#setRows").querySelector(`.setinp[data-si="${inp.dataset.si}"][data-side="${otherSide}"]`);
+          if(other) other.value = x<=9 ? 11 : x+2;
         }
       }
       updateTally();
