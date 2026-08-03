@@ -91,8 +91,8 @@ function showLogin(msg){
 
 function card(m, regMap, playerMap){
   const cls = m.display_status==="court" ? "court" : "prep";
-  const home = nameOf(m.home_reg_id, regMap, playerMap);
-  const away = nameOf(m.away_reg_id, regMap, playerMap);
+  const home = m.home_label || nameOf(m.home_reg_id, regMap, playerMap);
+  const away = m.away_label || nameOf(m.away_reg_id, regMap, playerMap);
   const t = m.scheduled_time ? m.scheduled_time.slice(0,5) : "";
   const timeBadge = t ? `<div class="timebadge"><span class="tlbl">${cls==="court"?"Start":"ab"}</span><span class="tval">${t}</span></div>` : "";
   return `<div class="card ${cls}">
@@ -115,7 +115,7 @@ async function load(){
     sb.from("events").select("name").eq("id",eventId).maybeSingle(),
     sb.from("registrations").select("id,player_id,guest_first_name,guest_last_name").eq("event_id",eventId),
     sb.from("players").select("id,first_name,last_name"),
-    sb.from("matches").select("id,label,court,display_status,home_reg_id,away_reg_id,scheduled_time,sort_order")
+    sb.from("matches").select("id,label,court,display_status,home_reg_id,away_reg_id,home_label,away_label,scheduled_time,sort_order")
       .eq("event_id",eventId).not("display_status","is",null)
   ]);
 
@@ -123,7 +123,7 @@ async function load(){
   const playerMap={}; (players||[]).forEach(p=>playerMap[p.id]=p);
   const sortFn=(a,b)=>String(a.court||"~").localeCompare(String(b.court||"~"),"de",{numeric:true});
   const onCourt=(matches||[]).filter(m=>m.display_status==="court").sort(sortFn);
-  const prepAll=(matches||[]).filter(m=>m.display_status==="prep" && m.home_reg_id && m.away_reg_id)
+  const prepAll=(matches||[]).filter(m=>m.display_status==="prep" && (m.home_label || (m.home_reg_id && m.away_reg_id)))
     .sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
   const prep=prepAll.slice(0, onCourt.length || 4);   // gleiche Anzahl wie aktive Courts
 

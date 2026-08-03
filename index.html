@@ -237,8 +237,9 @@
   table.matches .vs{color:var(--muted);text-align:center;width:24px}
   .mini{width:52px;padding:6px 7px;border:1px solid var(--border-strong);border-radius:6px;
     text-align:center;font-family:var(--f-mono);font-size:14px}
-  .mini.court{width:60px;text-align:left;font-family:inherit}
-  .mini.time{width:74px}
+  .mini.court{width:66px;text-align:left;font-family:inherit}
+  .mini.mstatus{width:auto;min-width:122px;text-align:left;font-family:inherit}
+  .mini.time{width:92px}
   .score{width:44px;padding:6px;border:1px solid var(--border-strong);border-radius:6px;
     text-align:center;font-family:var(--f-mono);font-size:15px;font-weight:600}
   table.standings{width:100%;border-collapse:collapse}
@@ -2140,33 +2141,47 @@ function matchReady(m){
     return { home:H.reg, away:A.reg };
   return null;
 }
+// Anzeige-Text einer Spielseite: Name (falls bekannt) sonst Quelle ("Sieger 102")
+function sideDisplayText(m, side){
+  const S=sideReg(m,side);
+  if(S.reg){ const r=currentRegs.find(x=>x.id===S.reg);
+    if(r){ if(r.player_id){ const p=PLAYERS.find(x=>x.id===r.player_id); return p?`${p.last_name}, ${(p.first_name||"")[0]||""}.`:"—"; }
+      return `${r.guest_last_name||""}, ${(r.guest_first_name||"")[0]||""}.`; } }
+  if(S.isBye||S.empty) return "Freilos";
+  return S.srcLabel||"—";
+}
 async function assignCourts(){
   if(!AUTO_COURTS || !MATCHES.length || !COURTS.length) return;
-  // Belegte Courts (Spiele „auf Court", noch nicht fertig)
   const occupied=new Set(MATCHES.filter(m=>m.display_status==="court" && m.status!=="done" && m.court).map(m=>m.court));
   const freeCourts=COURTS.filter(c=>!occupied.has(c));
-  // Wartende, spielbereite Spiele (nicht auf Court) von oben nach unten
-  const waiting=MATCHES
-    .filter(m=>m.display_status!=="court")
-    .sort((a,b)=>(a.sort_order||0)-(b.sort_order||0))
-    .map(m=>({m, r:matchReady(m)})).filter(x=>x.r);
-  const updates=[];
-  const queueLen=freeCourts.length + COURTS.length;   // Courts füllen + so viele Vorbereitungs-Spiele mit Namen bereithalten
-  waiting.forEach((x,idx)=>{
-    const {m,r}=x;
-    if(idx < freeCourts.length){
-      const court=freeCourts[idx];
-      if(m.court!==court || m.display_status!=="court" || m.home_reg_id!==r.home || m.away_reg_id!==r.away){
-        m.court=court; m.display_status="court"; m.home_reg_id=r.home; m.away_reg_id=r.away;
-        updates.push(sb.from("matches").update({court, display_status:"court", home_reg_id:r.home, away_reg_id:r.away}).eq("id",m.id));
-      }
-    } else if(idx < queueLen){
-      if(m.court || m.display_status!=="prep" || m.home_reg_id!==r.home || m.away_reg_id!==r.away){
-        m.court=null; m.display_status="prep"; m.home_reg_id=r.home; m.away_reg_id=r.away;
-        updates.push(sb.from("matches").update({court:null, display_status:"prep", home_reg_id:r.home, away_reg_id:r.away}).eq("id",m.id));
-      }
+  // Kandidaten: kein Freilos/kampflos, nicht fertig, nicht schon auf Court – nach Reihenfolge
+  const cand=MATCHES.filter(m=>m.status!=="done" && m.display_status!=="court" && !isWalkover(m))
+    .sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
+  const updates=[]; const usedIdx=new Set();
+  // 1. Freie Courts mit spielbereiten Spielen füllen (von oben)
+  let assigned=0;
+  for(let i=0;i<cand.length && assigned<freeCourts.length;i++){
+    const m=cand[i], r=matchReady(m); if(!r) continue;
+    const court=freeCourts[assigned++]; usedIdx.add(i);
+    const hl=sideDisplayText(m,"home"), al=sideDisplayText(m,"away");
+    m.court=court; m.display_status="court"; m.home_reg_id=r.home; m.away_reg_id=r.away; m.home_label=hl; m.away_label=al;
+    updates.push(sb.from("matches").update({court, display_status:"court", home_reg_id:r.home, away_reg_id:r.away, home_label:hl, away_label:al}).eq("id",m.id));
+  }
+  const onCourtCount=occupied.size+assigned;
+  // 2. Genauso viele Vorbereitungs-Spiele (nächste Kandidaten, auch der Folgerunde) beschriften
+  let prep=0;
+  for(let i=0;i<cand.length && prep<onCourtCount;i++){
+    if(usedIdx.has(i)) continue;
+    const m=cand[i], r=matchReady(m);
+    const hl=sideDisplayText(m,"home"), al=sideDisplayText(m,"away");
+    if(m.display_status!=="prep" || m.court || m.home_label!==hl || m.away_label!==al || (r && (m.home_reg_id!==r.home||m.away_reg_id!==r.away))){
+      m.display_status="prep"; m.court=null; m.home_label=hl; m.away_label=al;
+      const patch={display_status:"prep", court:null, home_label:hl, away_label:al};
+      if(r){ m.home_reg_id=r.home; m.away_reg_id=r.away; patch.home_reg_id=r.home; patch.away_reg_id=r.away; }
+      updates.push(sb.from("matches").update(patch).eq("id",m.id));
     }
-  });
+    prep++;
+  }
   if(updates.length){ try{ await Promise.all(updates); }catch(e){ toast("Court-Planer: "+e.message,true); } }
   renderGroups();
 }
