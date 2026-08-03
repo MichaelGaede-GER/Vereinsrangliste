@@ -38,6 +38,9 @@
   .players .vs-row .p.away{text-align:right}
   .players .vs-row .vs{color:var(--muted);font-size:15px;font-weight:600}
   .players .meta{color:var(--muted);font-size:13px;margin-top:4px}
+  .timebadge{flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-end;justify-content:center;min-width:78px;padding-left:12px;border-left:1px solid var(--line)}
+  .timebadge .tlbl{font-size:11px;letter-spacing:1px;color:var(--muted);text-transform:uppercase}
+  .timebadge .tval{font-size:27px;font-weight:800;line-height:1.05;font-variant-numeric:tabular-nums}
   .empty{color:var(--muted);padding:30px;text-align:center;border:1px dashed var(--line);border-radius:14px}
   .login{max-width:360px;margin:12vh auto;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:26px}
   .login h2{margin:0 0 6px} .login p{color:var(--muted);font-size:14px;margin-top:0}
@@ -90,13 +93,15 @@ function card(m, regMap, playerMap){
   const cls = m.display_status==="court" ? "court" : "prep";
   const home = nameOf(m.home_reg_id, regMap, playerMap);
   const away = nameOf(m.away_reg_id, regMap, playerMap);
-  const time = m.scheduled_time ? m.scheduled_time.slice(0,5)+" Uhr · " : "";
+  const t = m.scheduled_time ? m.scheduled_time.slice(0,5) : "";
+  const timeBadge = t ? `<div class="timebadge"><span class="tlbl">${cls==="court"?"Start":"ab"}</span><span class="tval">${t}</span></div>` : "";
   return `<div class="card ${cls}">
     <div class="courtbadge"><span class="lbl">Court</span><span class="num">${m.court?esc(m.court):"–"}</span></div>
     <div class="players">
       <div class="vs-row"><span class="p home">${esc(home)}</span><span class="vs">vs</span><span class="p away">${esc(away)}</span></div>
-      <div class="meta">${time}${esc(m.label||"")}</div>
+      <div class="meta">${esc(m.label||"")}</div>
     </div>
+    ${timeBadge}
   </div>`;
 }
 

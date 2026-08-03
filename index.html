@@ -757,7 +757,8 @@
       <input id="eName" class="field" placeholder="z. B. Vereinsrangliste März 2026">
       <div class="row" style="margin-top:14px">
         <div><label class="lbl">Datum</label><input id="eDate" class="field" type="date"></div>
-        <div style="flex:0 0 130px"><label class="lbl">Uhrzeit</label><input id="eTime" class="field" type="time"></div>
+        <div style="flex:0 0 130px"><label class="lbl">Startzeit</label><input id="eTime" class="field" type="time"></div>
+        <div style="flex:0 0 150px"><label class="lbl">Spielzeit/Spiel (Min.)</label><input id="eMatchMin" class="field mono" type="number" min="1" placeholder="z. B. 30"></div>
       </div>
       <label class="lbl">Ort / Halle</label><input id="eLocation" class="field" placeholder="z. B. Sporthalle Maintal">
       <div class="row" style="margin-top:14px">
@@ -1059,6 +1060,7 @@ function openEventModal(id){
   $("#eDate").value=e?.event_date||""; $("#eTime").value=e?.start_time?e.start_time.slice(0,5):"";
   $("#eLocation").value=e?.location||""; $("#eDeadline").value=e?.registration_deadline?toLocalInput(e.registration_deadline):"";
   $("#eMax").value=e?.max_participants||""; $("#eNotes").value=e?.notes||"";
+  $("#eMatchMin").value=e?.match_minutes||"";
   $("#eWinSets").value=String(e?.win_sets||3);
   $("#eOpen").checked=e?e.is_registration_open:true;
   $("#deleteEventBtn").classList.toggle("hidden", !id);
@@ -1074,13 +1076,14 @@ $("#saveEventBtn").addEventListener("click", async ()=>{
     registration_deadline:$("#eDeadline").value?new Date($("#eDeadline").value).toISOString():null,
     max_participants:$("#eMax").value?parseInt($("#eMax").value):null,
     notes:$("#eNotes").value.trim()||null, is_registration_open:$("#eOpen").checked,
+    match_minutes:$("#eMatchMin").value?parseInt($("#eMatchMin").value):null,
     win_sets:parseInt($("#eWinSets").value)||3 };
   const id=$("#eId").value;
   const res = id ? await sb.from("events").update(rec).eq("id",id).select().maybeSingle()
                  : await sb.from("events").insert(rec).select().maybeSingle();
   if(res.error){ toast(res.error.message,true); return; }
   $("#eventModal").classList.add("hidden"); await loadEvents();
-  if(id && currentEvent) await openEvent(id);
+  if(id && currentEvent){ await openEvent(id); await computeSchedule(); }
   toast(id?"Event gespeichert.":"Event angelegt.");
 });
 $("#deleteEventBtn").addEventListener("click", async ()=>{
@@ -2172,6 +2175,34 @@ async function initSchedule(){
   await sb.from("matches").update({display_status:"prep"}).eq("event_id",currentEvent.id).is("display_status",null).neq("status","done");
   await loadTournament();
   await assignCourts();
+  await computeSchedule();
+}
+
+// Geplante Startzeiten: Startzeit + Spielzeit je Court-Runde
+function isWalkover(m){
+  if(m.is_bye) return true;
+  const hasResult=Array.isArray(m.sets)&&m.sets.some(s=>s&&s[0]!=null);
+  if(hasResult) return false;
+  return matchOutcome(m).decided;   // entschieden ohne echtes Ergebnis = Freilos/kampflos
+}
+async function computeSchedule(){
+  if(!currentEvent) return;
+  const start=currentEvent.start_time, dur=parseInt(currentEvent.match_minutes)||0;
+  if(!start || !dur || !COURTS.length || !MATCHES.length) return;
+  const nc=COURTS.length;
+  const [h,mi]=String(start).split(":").map(Number);
+  const startMin=h*60+mi;
+  const playable=MATCHES.filter(m=>!isWalkover(m)).sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
+  const updates=[];
+  playable.forEach((m,idx)=>{
+    const wave=Math.floor(idx/nc);
+    const t=startMin+wave*dur;
+    const hh=String(Math.floor(t/60)%24).padStart(2,"0"), mm=String(t%60).padStart(2,"0");
+    const val=`${hh}:${mm}:00`;
+    if((m.scheduled_time||"").slice(0,5)!==`${hh}:${mm}`){ m.scheduled_time=val; updates.push(sb.from("matches").update({scheduled_time:val}).eq("id",m.id)); }
+  });
+  if(updates.length){ try{ await Promise.all(updates); }catch(e){} }
+  renderGroups();
 }
 
 // Manuelle Court-Übersteuerung: Spiel gezielt auf einen Court setzen
