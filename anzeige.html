@@ -48,12 +48,16 @@
   .login button{width:100%;margin-top:14px;padding:12px;border:0;border-radius:9px;background:var(--accent);color:#fff;font-weight:700;font-size:15px;cursor:pointer}
   .login .err{color:#fca5a5;font-size:13px;margin-top:10px;min-height:16px}
   .foot{color:var(--muted);font-size:12px;text-align:center;padding:8px}
+  #sponsorBar{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:22px;
+    padding:14px 24px;margin:10px 24px 0;border-top:1px solid var(--line)}
+  #sponsorBar img{height:52px;max-width:170px;object-fit:contain;background:#fff;border-radius:8px;padding:6px}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
 </head>
 <body>
 <div id="app"></div>
+<div id="sponsorBar"></div>
 <div class="foot" id="foot"></div>
 
 <script>
@@ -146,6 +150,17 @@ async function load(){
       </div>
     </div>`;
   $("#foot").textContent = "Vereinsrangliste Maintal";
+  // Branding-Fußzeile
+  try{ const b=await sb.from("public_branding").select("value").maybeSingle();
+    const v=b.data&&b.data.value; if(v&&(v.owner||v.version)) $("#foot").textContent = `© ${v.owner||""} ${v.year||""} · Version ${v.version||""} · Vereinsrangliste Maintal`.replace(/\s+/g," ").trim();
+  }catch(e){}
+  // Sponsoren-Banner unten (aus den App-Einstellungen)
+  try{ const s=await sb.from("public_ranking_site").select("value").maybeSingle();
+    const cfg=s.data&&s.data.value; if(cfg&&typeof cfg==="object"){
+      const logos=[].concat(cfg.sponsorsLeft||[], cfg.sponsorsRight||[]).filter(Boolean);
+      $("#sponsorBar").innerHTML = logos.map(f=>`<img src="${esc(f)}" alt="" onerror="this.remove()">`).join("");
+    }
+  }catch(e){}
 
   // in 10 Sekunden neu laden
   clearTimeout(window.__t); window.__t = setTimeout(()=>location.reload(), 10000);

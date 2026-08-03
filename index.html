@@ -549,7 +549,7 @@
         <p class="hint">Lege fest, was bei der Platzierung zuerst zählt. Ganz oben = höchste Priorität. Bei Gleichstand entscheidet das nächste Kriterium.</p>
         <div class="status-list" id="critList"></div>
         <div class="add-status-row" style="align-items:flex-end">
-          <div style="max-width:160px"><label class="lbl">Punkte pro Sieg</label><input id="ppw" class="field mono" type="number" min="1" value="2"></div>
+          <div style="max-width:160px"><label class="lbl">Matchpunkte pro Sieg</label><input id="ppw" class="field mono" type="number" min="1" value="2"></div>
           <button class="btn btn-primary" id="saveStandingsBtn">Wertung speichern</button>
         </div>
       </div>
@@ -569,6 +569,16 @@
         <p class="hint">Lade die Bilddateien mit ins GitHub-Verzeichnis (zu <code>rangliste.html</code>) und trage hier nur die Dateinamen ein (z. B. <code>banner.png</code>) – oder eine komplette Web-Adresse. Leere Felder bleiben auf der Seite unsichtbar. Der Link ist optional.</p>
         <div id="rsFields"></div>
         <button class="btn btn-primary" id="saveRankingSiteBtn" style="margin-top:12px">Banner &amp; Sponsoren speichern</button>
+      </div>
+      <div class="panel">
+        <h3>Branding &amp; Version</h3>
+        <p class="hint">Erscheint als Fußzeile auf allen Seiten (App, Anzeige, Rangliste, Anmeldung). Die Version kannst du nach jedem Update anpassen.</p>
+        <div class="row" style="align-items:flex-end">
+          <div class="grow"><label class="lbl">Inhaber / Copyright</label><input id="brOwner" class="field" placeholder="Michael Gäde"></div>
+          <div style="flex:0 0 100px"><label class="lbl">Jahr</label><input id="brYear" class="field mono" placeholder="2026"></div>
+          <div style="flex:0 0 130px"><label class="lbl">Version</label><input id="brVersion" class="field mono" placeholder="1.0"></div>
+          <button class="btn btn-primary" id="saveBrandingBtn">Speichern</button>
+        </div>
       </div>
     </div>
   </main>
@@ -655,6 +665,8 @@
     </div>
   </div>
 </div>
+
+<footer id="appFoot" style="text-align:center;color:var(--muted);font-size:12px;padding:26px 16px 40px"></footer>
 
 <div id="toast"></div>
 
@@ -824,8 +836,9 @@ let AUTO_COURTS = true;      // Courts automatisch vergeben
 let GUEST_FEE = 0;
 let TREASURER_EMAIL = "";
 let RANKING_SITE = { banner:"", bannerLink:"", sponsorsLeft:["","","",""], sponsorsLeftLinks:["","","",""], sponsorsRight:["","","",""], sponsorsRightLinks:["","","",""] };
+let BRANDING = { owner:"Michael Gäde", year:"2026", version:"1.0" };
 let RETIRED = new Set();          // regIds, die aufgegeben haben (aktuelles Event)
-const CRIT_LABELS = { match_points:"Spielpunkte", h2h:"Direkter Vergleich", sets:"Sätze", balls:"Bälle" };
+const CRIT_LABELS = { match_points:"Spielpunkte", h2h:"Direkter Vergleich", sets:"Sätze", balls:"Punkte" };
 
 if(window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc =
   "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
@@ -1258,7 +1271,23 @@ async function loadSettings(){
   const {data:rs}=await sb.from("app_settings").select("value").eq("key","ranking_site").maybeSingle();
   if(rs?.value && typeof rs.value==="object"){ RANKING_SITE = Object.assign(RANKING_SITE, rs.value); }
   renderRankingSiteInputs();
+
+  const {data:br}=await sb.from("app_settings").select("value").eq("key","branding").maybeSingle();
+  if(br?.value && typeof br.value==="object"){ BRANDING = Object.assign(BRANDING, br.value); }
+  if($("#brOwner")) $("#brOwner").value=BRANDING.owner||"";
+  if($("#brYear")) $("#brYear").value=BRANDING.year||"";
+  if($("#brVersion")) $("#brVersion").value=BRANDING.version||"";
+  renderBrandFoot();
 }
+function renderBrandFoot(){
+  const el=$("#appFoot"); if(!el) return;
+  el.textContent = `© ${BRANDING.owner||""} ${BRANDING.year||""} · Version ${BRANDING.version||""}`.replace(/\s+/g," ").trim();
+}
+async function saveBranding(){
+  BRANDING = { owner:$("#brOwner").value.trim(), year:$("#brYear").value.trim(), version:$("#brVersion").value.trim() };
+  const {error}=await sb.from("app_settings").upsert({key:"branding",value:BRANDING,updated_at:new Date().toISOString()});
+  if(error){ toast(error.message,true); return; }
+  renderBrandFoot(); toast("Branding gespeichert.");
 function renderRankingSiteInputs(){
   const box=$("#rsFields"); if(!box) return;
   const S=RANKING_SITE;
@@ -1331,6 +1360,7 @@ $("#addCourtBtn").addEventListener("click", ()=>{
 $("#newCourtName").addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); $("#addCourtBtn").click(); } });
 $("#saveCourtsBtn").addEventListener("click", saveCourts);
 $("#saveRankingSiteBtn").addEventListener("click", saveRankingSite);
+$("#saveBrandingBtn").addEventListener("click", saveBranding);
 $("#saveGuestFeeBtn").addEventListener("click", async ()=>{
   GUEST_FEE = parseFloat($("#guestFee").value)||0;
   const {error}=await sb.from("app_settings").upsert({key:"guest_fee",value:GUEST_FEE,updated_at:new Date().toISOString()});
@@ -2351,7 +2381,7 @@ function renderGroupBlock(g,need){
     </table></div>
     <div class="gb-section-title">Tabelle</div>
     <div style="overflow-x:auto"><table class="standings">
-      <thead><tr><th>Pl.</th><th>Spieler</th><th class="st">Sp</th><th class="st">S</th><th class="st">N</th><th class="st">Pkte</th><th class="st">Sätze</th><th class="st">Bälle</th></tr></thead>
+      <thead><tr><th>Pl.</th><th>Spieler</th><th class="st">Sp</th><th class="st">S</th><th class="st">N</th><th class="st">Pkte</th><th class="st">Sätze</th><th class="st">Punkte</th></tr></thead>
       <tbody>${srows}</tbody>
     </table></div>
     <div style="padding:6px 18px 2px;color:var(--muted);font-size:12px">Wertung: ${STANDINGS.order.map(c=>CRIT_LABELS[c]||c).join(" → ")}</div>
@@ -2396,7 +2426,7 @@ function renderFinalBlock(g,need){
     <div class="gb-section-title">Spielplan</div>
     <div style="overflow-x:auto"><table class="matches"><thead><tr><th>Nr</th><th>Court</th><th>Status</th><th>Zeit</th><th style="text-align:right">Heim</th><th style="text-align:center">Ergebnis</th><th>Gast</th></tr></thead><tbody>${rows}</tbody></table></div>
     <div class="gb-section-title">Tabelle</div>
-    <div style="overflow-x:auto"><table class="standings"><thead><tr><th>Pl.</th><th>Spieler</th><th class="st">Sp</th><th class="st">S</th><th class="st">N</th><th class="st">Pkte</th><th class="st">Sätze</th><th class="st">Bälle</th></tr></thead><tbody>${srows}</tbody></table></div>
+    <div style="overflow-x:auto"><table class="standings"><thead><tr><th>Pl.</th><th>Spieler</th><th class="st">Sp</th><th class="st">S</th><th class="st">N</th><th class="st">Pkte</th><th class="st">Sätze</th><th class="st">Punkte</th></tr></thead><tbody>${srows}</tbody></table></div>
   </div>`;
 }
 
@@ -2775,20 +2805,23 @@ async function renderRangliste(){
   const ids=events.map(e=>e.id);
   const {data:results}=await sb.from("event_results").select("*").in("event_id",ids);
   const byPlayer={};
-  (results||[]).forEach(r=>{ if(!r.player_id) return;
-    const o=byPlayer[r.player_id]=byPlayer[r.player_id]||{name:r.name, results:[]};
-    o.results.push(Number(r.points)); o.name=r.name; });
-  const rows=Object.keys(byPlayer).map(pid=>{
-    const o=byPlayer[pid];
+  (results||[]).forEach(r=>{
+    const guest=!r.player_id;
+    const key = r.player_id || ("g:"+r.name);
+    const o=byPlayer[key]=byPlayer[key]||{name:r.name, results:[], guest};
+    o.results.push(Number(r.points)); o.name=r.name; o.guest=guest; });
+  const rows=Object.keys(byPlayer).map(k=>{
+    const o=byPlayer[k];
     const best4=o.results.slice().sort((a,b)=>b-a).slice(0,4);
-    return { name:o.name, sum:best4.reduce((a,b)=>a+b,0), count:o.results.length };
+    return { name:o.name.replace(/\s*\(Gast\)\s*$/,""), guest:o.guest, sum:best4.reduce((a,b)=>a+b,0), count:o.results.length };
   }).sort((a,b)=> b.sum-a.sum || a.name.localeCompare(b.name,"de"));
   const evList=events.map(e=>esc(e.name||"Turnier")).join(" · ");
+  const gtag=r=> r.guest?` <span class="badge guest" style="font-size:10px">Gast</span>`:"";
   box.innerHTML = `
     <div style="color:var(--muted);font-size:13px;margin-bottom:10px">Berücksichtigt: ${events.length} Turnier${events.length>1?"e":""} · ${rows.length} Spieler</div>
     <div style="overflow-x:auto"><table class="standings" style="width:100%">
       <thead><tr><th>Pl.</th><th>Spieler</th><th class="st">Ranglistenpunkte</th><th class="st">Turniere</th></tr></thead>
-      <tbody>${rows.map((r,i)=>`<tr class="${i===0?"top":""}"><td class="pos">${i+1}</td><td>${esc(r.name)}</td><td class="st mono">${r.sum.toLocaleString("de-DE")}</td><td class="st">${r.count}</td></tr>`).join("")}</tbody>
+      <tbody>${rows.map((r,i)=>`<tr class="${i===0?"top":""}"><td class="pos">${i+1}</td><td>${esc(r.name)}${gtag(r)}</td><td class="st mono">${r.sum.toLocaleString("de-DE")}</td><td class="st">${r.count}</td></tr>`).join("")}</tbody>
     </table></div>
     <div style="color:var(--muted);font-size:12px;margin-top:10px">Turniere: ${evList}</div>`;
 }
@@ -3087,7 +3120,7 @@ function updateTally(){
   const done=t.hs>=need||t.as>=need;
   $("#setTally").innerHTML=`Sätze <span class="mono">${t.hs} : ${t.as}</span>`+
     (done?`  <span style="color:var(--ok)">✓ Sieg</span>`:``)+
-    `<div style="color:var(--muted);font-size:12px;font-weight:400;margin-top:2px">Bälle ${t.hb} : ${t.ab}</div>`;
+    `<div style="color:var(--muted);font-size:12px;font-weight:400;margin-top:2px">Punkte ${t.hb} : ${t.ab}</div>`;
 }
 
 $("#saveResultBtn").addEventListener("click", async ()=>{

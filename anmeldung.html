@@ -168,7 +168,7 @@
     </div>
   </div>
 
-  <div class="foot">Vereinsrangliste Maintal</div>
+  <div class="foot" id="foot">Vereinsrangliste Maintal</div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -177,6 +177,9 @@
 const $ = s => document.querySelector(s);
 const cfg = window.SUPABASE_CONFIG || {};
 const sb = supabase.createClient(cfg.url, cfg.anonKey);
+sb.from("public_branding").select("value").maybeSingle().then(({data})=>{
+  const v=data&&data.value; if(v&&(v.owner||v.version)){ const f=document.getElementById("foot"); if(f) f.textContent = `© ${v.owner||""} ${v.year||""} · Version ${v.version||""} · Vereinsrangliste Maintal`.replace(/\s+/g," ").trim(); }
+}).catch(()=>{});
 
 const params = new URLSearchParams(location.search);
 const eventId = params.get("event");
