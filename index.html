@@ -2147,21 +2147,23 @@ async function assignCourts(){
     .filter(m=>m.display_status!=="court")
     .sort((a,b)=>(a.sort_order||0)-(b.sort_order||0))
     .map(m=>({m, r:matchReady(m)})).filter(x=>x.r);
-  const updates=[]; let fi=0;
-  for(const {m,r} of waiting){
-    if(fi<freeCourts.length){
-      const court=freeCourts[fi++];
-      m.court=court; m.display_status="court"; m.home_reg_id=r.home; m.away_reg_id=r.away;
-      updates.push(sb.from("matches").update({court, display_status:"court", home_reg_id:r.home, away_reg_id:r.away}).eq("id",m.id));
-    }else{
-      // die nächsten Spiele als „Vorbereitung" mit Namen für die Anzeige sichern
-      if(fi>=freeCourts.length && updates.length>freeCourts.length+10) break;
-      if(m.home_reg_id!==r.home || m.away_reg_id!==r.away || m.display_status!=="prep"){
-        m.home_reg_id=r.home; m.away_reg_id=r.away; m.display_status="prep";
-        updates.push(sb.from("matches").update({home_reg_id:r.home, away_reg_id:r.away, display_status:"prep"}).eq("id",m.id));
+  const updates=[];
+  const queueLen=freeCourts.length + COURTS.length;   // Courts füllen + so viele Vorbereitungs-Spiele mit Namen bereithalten
+  waiting.forEach((x,idx)=>{
+    const {m,r}=x;
+    if(idx < freeCourts.length){
+      const court=freeCourts[idx];
+      if(m.court!==court || m.display_status!=="court" || m.home_reg_id!==r.home || m.away_reg_id!==r.away){
+        m.court=court; m.display_status="court"; m.home_reg_id=r.home; m.away_reg_id=r.away;
+        updates.push(sb.from("matches").update({court, display_status:"court", home_reg_id:r.home, away_reg_id:r.away}).eq("id",m.id));
+      }
+    } else if(idx < queueLen){
+      if(m.court || m.display_status!=="prep" || m.home_reg_id!==r.home || m.away_reg_id!==r.away){
+        m.court=null; m.display_status="prep"; m.home_reg_id=r.home; m.away_reg_id=r.away;
+        updates.push(sb.from("matches").update({court:null, display_status:"prep", home_reg_id:r.home, away_reg_id:r.away}).eq("id",m.id));
       }
     }
-  }
+  });
   if(updates.length){ try{ await Promise.all(updates); }catch(e){ toast("Court-Planer: "+e.message,true); } }
   renderGroups();
 }

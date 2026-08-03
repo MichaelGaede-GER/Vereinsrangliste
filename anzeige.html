@@ -118,8 +118,9 @@ async function load(){
   const playerMap={}; (players||[]).forEach(p=>playerMap[p.id]=p);
   const sortFn=(a,b)=>String(a.court||"~").localeCompare(String(b.court||"~"),"de",{numeric:true});
   const onCourt=(matches||[]).filter(m=>m.display_status==="court").sort(sortFn);
-  const prep=(matches||[]).filter(m=>m.display_status==="prep" && m.home_reg_id && m.away_reg_id)
-    .sort((a,b)=>(a.sort_order||0)-(b.sort_order||0)).slice(0,12);
+  const prepAll=(matches||[]).filter(m=>m.display_status==="prep" && m.home_reg_id && m.away_reg_id)
+    .sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
+  const prep=prepAll.slice(0, onCourt.length || 4);   // gleiche Anzahl wie aktive Courts
 
   const now=new Date().toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"});
   $("#app").innerHTML = `
