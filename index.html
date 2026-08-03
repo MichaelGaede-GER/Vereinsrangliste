@@ -1288,6 +1288,7 @@ async function saveBranding(){
   const {error}=await sb.from("app_settings").upsert({key:"branding",value:BRANDING,updated_at:new Date().toISOString()});
   if(error){ toast(error.message,true); return; }
   renderBrandFoot(); toast("Branding gespeichert.");
+}
 function renderRankingSiteInputs(){
   const box=$("#rsFields"); if(!box) return;
   const S=RANKING_SITE;
