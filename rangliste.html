@@ -54,6 +54,10 @@
   .h2h-card .nm.r{text-align:right}
   .h2h-card .sc{font-size:30px;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}
   .h2h-sub{text-align:center;color:var(--muted);font-size:12px;margin-bottom:6px}
+  .h2h-stats{display:flex;gap:10px;margin:8px 18px 4px}
+  .h2h-stats .st-item{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 6px;text-align:center}
+  .h2h-stats .st-item .v{display:block;font-weight:800;font-size:17px;font-variant-numeric:tabular-nums}
+  .h2h-stats .st-item .l{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-top:2px}
   .foot{color:var(--muted);font-size:12px;margin-top:16px;text-align:center}
   .empty{padding:40px;text-align:center;color:var(--muted)}
   .tourn-head{padding:13px 15px;font-weight:700;font-size:15px;display:flex;justify-content:space-between;align-items:baseline;gap:10px;border-bottom:1px solid var(--border);background:#FAFBFA}
@@ -163,12 +167,14 @@ let CUR_H2H={}, CUR_NAME="";
 function h2hFor(name){
   const map={};
   ALL_H2H.forEach(r=>{
-    let opp=null, won=null;
-    if(r.home_name===name){ opp=r.away_name; won=r.home_won; }
-    else if(r.away_name===name){ opp=r.home_name; won=!r.home_won; }
+    let opp=null, won=null, mS=0, oS=0, mB=0, oB=0;
+    if(r.home_name===name){ opp=r.away_name; won=r.home_won; mS=r.home_sets; oS=r.away_sets; mB=r.home_balls; oB=r.away_balls; }
+    else if(r.away_name===name){ opp=r.home_name; won=!r.home_won; mS=r.away_sets; oS=r.home_sets; mB=r.away_balls; oB=r.home_balls; }
     if(opp==null) return;
-    const o=map[opp]=map[opp]||{w:0,l:0};
+    const o=map[opp]=map[opp]||{w:0,l:0,sf:0,sa:0,bf:0,ba:0,games:[]};
     if(won) o.w++; else o.l++;
+    o.sf+=(+mS||0); o.sa+=(+oS||0); o.bf+=(+mB||0); o.ba+=(+oB||0);
+    o.games.push({won, mS:+mS||0, oS:+oS||0, mB:+mB||0, oB:+oB||0, ev:r.ev_name||"", date:r.ev_date||""});
   });
   return map;
 }
@@ -249,14 +255,22 @@ function openPlayer(name){
 function renderH2H(opp){
   const box=document.getElementById("h2hResult"); if(!box) return;
   if(!opp){ box.innerHTML=""; return; }
-  const r=CUR_H2H[opp]||{w:0,l:0}; const total=r.w+r.l;
+  const r=CUR_H2H[opp]||{w:0,l:0,sf:0,sa:0,bf:0,ba:0,games:[]}; const total=r.w+r.l;
+  const games=r.games.slice().sort((a,b)=>String(b.date).localeCompare(String(a.date)));
   box.innerHTML =
     '<div class="h2h-card">'+
       '<span class="nm r">'+esc(cleanName(CUR_NAME))+'</span>'+
       '<span class="sc">'+r.w+' : '+r.l+'</span>'+
       '<span class="nm">'+esc(cleanName(opp))+'</span>'+
     '</div>'+
-    '<div class="h2h-sub">'+total+' direkte'+(total===1?'s':'')+' Spiel'+(total===1?'':'e')+'</div>';
+    '<div class="h2h-stats">'+
+      '<div class="st-item"><span class="v">'+r.w+' : '+r.l+'</span><span class="l">Spiele</span></div>'+
+      '<div class="st-item"><span class="v">'+r.sf+' : '+r.sa+'</span><span class="l">Sätze</span></div>'+
+      '<div class="st-item"><span class="v">'+r.bf+' : '+r.ba+'</span><span class="l">Punkte</span></div>'+
+    '</div>'+
+    (games.length? ('<table style="margin-top:6px"><thead><tr><th>Turnier</th><th class="hide-sm">Datum</th><th class="r">Sätze</th><th class="r">Punkte</th><th class="r">Erg.</th></tr></thead><tbody>'+
+      games.map(g=>'<tr><td>'+esc(g.ev)+'</td><td class="hide-sm" style="color:var(--muted);font-size:13px">'+fdate(g.date)+'</td><td class="pts">'+g.mS+':'+g.oS+'</td><td class="pts">'+g.mB+':'+g.oB+'</td><td class="pts" style="color:'+(g.won?'var(--up)':'var(--down)')+'">'+(g.won?'S':'N')+'</td></tr>').join("")+
+      '</tbody></table>') : "");
 }
 $("#pmClose").addEventListener("click", ()=>$("#playerModal").classList.add("hidden"));
 $("#playerModal").addEventListener("click", e=>{ if(e.target.id==="playerModal") $("#playerModal").classList.add("hidden"); });
@@ -293,7 +307,7 @@ async function load(){
 
   const res2 = await sb.from("public_ranking_results").select("event_id,name,rank,points").limit(5000);
   ALL_RESULTS = res2.data||[];
-  try{ const h=await sb.from("public_h2h").select("home_name,away_name,home_won").limit(20000); ALL_H2H=h.data||[]; }catch(e){ ALL_H2H=[]; }
+  try{ const h=await sb.from("public_h2h").select("home_name,away_name,home_won,home_sets,away_sets,home_balls,away_balls,ev_name,ev_date").limit(20000); ALL_H2H=h.data||[]; }catch(e){ ALL_H2H=[]; }
   const resByEvent={}; ALL_RESULTS.forEach(r=> (resByEvent[r.event_id]=resByEvent[r.event_id]||[]).push(r));
 
   const ids = events.map(e=>e.id);
