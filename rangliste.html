@@ -307,7 +307,7 @@ async function load(){
 
   const res2 = await sb.from("public_ranking_results").select("event_id,name,rank,points").limit(5000);
   ALL_RESULTS = res2.data||[];
-  try{ const h=await sb.from("public_h2h").select("home_name,away_name,home_won,home_sets,away_sets,home_balls,away_balls,ev_name,ev_date").limit(20000); ALL_H2H=h.data||[]; }catch(e){ ALL_H2H=[]; }
+  try{ const h=await sb.from("public_h2h").select("*").limit(20000); ALL_H2H=h.data||[]; }catch(e){ ALL_H2H=[]; }
   const resByEvent={}; ALL_RESULTS.forEach(r=> (resByEvent[r.event_id]=resByEvent[r.event_id]||[]).push(r));
 
   const ids = events.map(e=>e.id);
