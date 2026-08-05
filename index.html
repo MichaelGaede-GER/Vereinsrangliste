@@ -345,6 +345,7 @@
       <div><h1>Vereinsrangliste Maintal</h1><div class="sub">Verwaltung</div></div>
     </div>
     <div class="who"><span id="whoEmail" class="mono"></span>
+      <span id="whoRole" class="badge" style="margin-left:8px"></span>
       <button id="logoutBtn" class="btn btn-sm">Abmelden</button></div>
   </header>
 
@@ -352,6 +353,7 @@
     <button class="tab active" data-tab="events">Events</button>
     <button class="tab" data-tab="players">Spieler</button>
     <button class="tab" data-tab="ranking">Rangliste</button>
+    <button class="tab hidden" data-tab="users">Benutzer</button>
     <button class="tab" data-tab="settings">Einstellungen</button>
   </nav>
 
@@ -509,6 +511,36 @@
     </div>
     <p class="hint">Beste 4 Ergebnisse der letzten 10 ranglistenrelevanten Turniere. Spieler ohne Teilnahme in diesen 10 Turnieren werden nicht geführt.</p>
     <div id="rankingContainer"></div>
+  </main>
+
+  <main id="tab-users" class="hidden">
+    <div class="page-head">
+      <h2>Benutzer</h2>
+      <button class="btn btn-sm" id="refreshUsersBtn">Aktualisieren</button>
+    </div>
+    <p class="hint">Rollen bestimmen, was jemand sehen und tun darf. Neue Benutzer entstehen durch Registrierung auf der Anmeldeseite und erscheinen dann hier automatisch.</p>
+    <div class="card">
+      <table>
+        <thead><tr><th>Name</th><th>Rolle</th><th class="hide-sm">Angelegt</th></tr></thead>
+        <tbody id="usersBody"></tbody>
+      </table>
+    </div>
+    <div class="panel" style="margin-top:16px">
+      <h3>Was die Rollen dürfen</h3>
+      <table class="matches" style="width:100%">
+        <thead><tr><th>Bereich</th><th>Admin</th><th>Turnierleiter</th><th>Kassenwart</th></tr></thead>
+        <tbody>
+          <tr><td>Events &amp; Anmeldungen anlegen</td><td>✓</td><td>✓</td><td>–</td></tr>
+          <tr><td>Spielplan, Ergebnisse, Endplatzierung</td><td>✓</td><td>✓</td><td>–</td></tr>
+          <tr><td>Spieler verwalten</td><td>✓</td><td>✓</td><td>–</td></tr>
+          <tr><td>Zahlungsart (bar/Konto) ändern</td><td>✓</td><td>✓</td><td>✓</td></tr>
+          <tr><td>Alles ansehen (inkl. Abrechnung)</td><td>✓</td><td>✓</td><td>✓</td></tr>
+          <tr><td>Einstellungen (Punkte, Courts, Branding)</td><td>✓</td><td>–</td><td>–</td></tr>
+          <tr><td>Benutzer &amp; Rollen verwalten</td><td>✓</td><td>–</td><td>–</td></tr>
+          <tr><td>Events löschen, Turnier zurücksetzen</td><td>✓</td><td>–</td><td>–</td></tr>
+        </tbody>
+      </table>
+    </div>
   </main>
 
   <main id="tab-settings" class="hidden">
@@ -912,7 +944,59 @@ $("#logoutBtn").addEventListener("click", ()=> sb.auth.signOut());
 async function enterApp(session){
   $("#loginView").classList.add("hidden"); $("#appView").classList.remove("hidden");
   $("#whoEmail").textContent = session.user.email;
+  await loadMyRole(session);
   await loadStatuses(); await loadPlayers(); await loadEvents(); await loadSettings();
+  applyRoleUi();
+}
+// ---------- Rollen ----------
+let MY_ROLE="director", MY_UID=null;
+const ROLE_LABEL={admin:"Administrator", director:"Turnierleiter", treasurer:"Kassenwart"};
+const isAdmin   = ()=> MY_ROLE==="admin";
+const canManage = ()=> MY_ROLE==="admin" || MY_ROLE==="director";
+async function loadMyRole(session){
+  MY_UID=session.user.id;
+  try{
+    const {data}=await sb.from("profiles").select("role,full_name").eq("id",MY_UID).maybeSingle();
+    MY_ROLE=(data&&data.role)||"director";
+  }catch(e){ MY_ROLE="director"; }
+  const el=$("#whoRole"); if(el) el.textContent=ROLE_LABEL[MY_ROLE]||MY_ROLE;
+}
+async function renderUsers(){
+  const body=$("#usersBody"); if(!body) return;
+  if(!isAdmin()){ body.innerHTML=`<tr><td colspan="3" class="hint">Nur Administratoren können Benutzer verwalten.</td></tr>`; return; }
+  const {data,error}=await sb.from("profiles").select("id,full_name,role,created_at").order("created_at");
+  if(error){ body.innerHTML=`<tr><td colspan="3" class="hint">Fehler: ${esc(error.message)}</td></tr>`; return; }
+  const users=data||[];
+  body.innerHTML=users.map(u=>{
+    const me=u.id===MY_UID;
+    const sel=`<select class="field urole" data-uid="${u.id}" style="max-width:190px"${me?" disabled":""}>
+      ${["admin","director","treasurer"].map(r=>`<option value="${r}"${u.role===r?" selected":""}>${ROLE_LABEL[r]}</option>`).join("")}
+    </select>`;
+    return `<tr><td class="pname">${esc(u.full_name||"(ohne Namen)")}${me?' <span class="badge" style="font-size:10px">Du</span>':""}</td>
+      <td>${sel}</td>
+      <td class="hide-sm num" style="color:var(--muted);font-size:13px">${u.created_at?fmtDate(u.created_at.slice(0,10)):""}</td></tr>`;
+  }).join("") || `<tr><td colspan="3" class="hint">Noch keine Benutzer.</td></tr>`;
+  body.querySelectorAll(".urole").forEach(s=>s.addEventListener("change",()=>setUserRole(s.dataset.uid, s.value)));
+}
+async function setUserRole(uid, role){
+  if(uid===MY_UID){ toast("Die eigene Rolle kann nicht geändert werden.",true); renderUsers(); return; }
+  const {error}=await sb.from("profiles").update({role}).eq("id",uid);
+  if(error){ toast(error.message,true); renderUsers(); return; }
+  toast("Rolle geändert: "+(ROLE_LABEL[role]||role));
+}
+function applyRoleUi(){
+  // Einstellungen + Benutzerverwaltung nur für Admin
+  document.querySelectorAll('.tab[data-tab="settings"]').forEach(t=>t.classList.toggle("hidden", !isAdmin()));
+  document.querySelectorAll('.tab[data-tab="users"]').forEach(t=>t.classList.toggle("hidden", !isAdmin()));
+  // Turnier zurücksetzen + Event löschen nur Admin
+  const rt=$("#resetTournBtn"); if(rt && !isAdmin()) rt.classList.add("hidden");
+  const de=$("#deleteEventBtn"); if(de) de.style.display = isAdmin()?"":"none";
+  // Kassenwart: nur lesen (außer Zahlungsart)
+  const ro = !canManage();
+  [["#addEventBtn"],["#addPlayerBtn"],["#addRegBtn"],["#addGroupBtn"],["#saveSeedBtn"],
+   ["#seedFromRankingBtn"],["#placementBtn"],["#manualBtn"],["#savePlacementBtn"],["#saveManualBtn"]]
+    .forEach(([sel])=>{ const el=$(sel); if(el) el.style.display = ro?"none":""; });
+  if(ro){ document.querySelectorAll('.tab[data-tab="players"]').forEach(t=>t.classList.add("hidden")); }
 }
 
 // ---------- Tabs ----------
@@ -924,8 +1008,10 @@ document.querySelectorAll(".tab").forEach(t=>{
     $("#tab-events").classList.toggle("hidden", n!=="events");
     $("#tab-players").classList.toggle("hidden", n!=="players");
     $("#tab-ranking").classList.toggle("hidden", n!=="ranking");
+    $("#tab-users").classList.toggle("hidden", n!=="users");
     $("#tab-settings").classList.toggle("hidden", n!=="settings");
     if(n==="ranking") renderRangliste();
+    if(n==="users") renderUsers();
   });
 });
 
@@ -1102,7 +1188,7 @@ function openEventModal(id){
   $("#eMatchMin").value=e?.match_minutes||"";
   $("#eWinSets").value=String(e?.win_sets||3);
   $("#eOpen").checked=e?e.is_registration_open:true;
-  $("#deleteEventBtn").classList.toggle("hidden", !id);
+  $("#deleteEventBtn").classList.toggle("hidden", !id || !isAdmin());
   $("#eventModal").classList.remove("hidden"); setTimeout(()=>$("#eName").focus(),40);
 }
 document.querySelectorAll("[data-close-event]").forEach(b=>b.addEventListener("click",()=>$("#eventModal").classList.add("hidden")));
@@ -2384,7 +2470,7 @@ async function loadTournament(){
 function renderGroups(){
   const hasT = GROUPS.length>0 || MATCHES.some(m=>m.phase==="placement");
   $("#groupsEmpty").classList.toggle("hidden", hasT);
-  if($("#resetTournBtn")) $("#resetTournBtn").classList.toggle("hidden", !hasT);
+  if($("#resetTournBtn")) $("#resetTournBtn").classList.toggle("hidden", !hasT || !isAdmin());
   const need=currentEvent.win_sets||3;
   let html = renderStandalone(need, true);
   html += GROUPS.map(g=> groupIsSourced(g.id) ? renderFinalBlock(g,need) : renderGroupBlock(g,need)).join("");
@@ -2904,6 +2990,7 @@ async function renderRangliste(){
     <div style="color:var(--muted);font-size:12px;margin-top:10px">Turniere: ${evList}</div>`;
 }
 $("#refreshRankingBtn").addEventListener("click", renderRangliste);
+$("#refreshUsersBtn").addEventListener("click", renderUsers);
 $("#addGroupBtn").addEventListener("click", ()=>{
   if(seedList.length<3){ toast("Es müssen mindestens 3 Spieler gesetzt sein.",true); return; }
   fillModeSelect();
