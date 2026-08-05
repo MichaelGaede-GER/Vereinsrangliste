@@ -580,6 +580,20 @@
           <button class="btn btn-primary" id="saveBrandingBtn">Speichern</button>
         </div>
       </div>
+      <div class="panel">
+        <h3>Ranglisten-Punkte</h3>
+        <p class="hint">Punkte je Platzierung im Turnier, der Wert für die Plätze 33–128 sowie die Multiplikatoren nach Teilnehmerzahl. Änderungen gelten für <strong>künftige</strong> Endplatzierungen; bereits gespeicherte Turniere behalten ihre Punkte (bei Bedarf einfach die Endplatzierung erneut speichern).</p>
+        <label class="lbl">Punkte je Platz (1–32)</label>
+        <div id="ptGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;margin-bottom:12px"></div>
+        <div class="row" style="align-items:flex-end">
+          <div style="max-width:220px"><label class="lbl">Punkte für Platz 33–128</label><input id="ptTail" class="field mono" type="number" min="0" step="0.5"></div>
+        </div>
+        <label class="lbl" style="margin-top:14px">Multiplikatoren (bis Teilnehmerzahl → Faktor)</label>
+        <div id="ptTiers"></div>
+        <button class="btn btn-sm" id="ptAddTier" style="margin-top:4px">+ Stufe</button>
+        <div style="margin-top:14px"><button class="btn btn-primary" id="savePointsBtn">Punkte speichern</button>
+          <button class="btn" id="resetPointsBtn" style="margin-left:8px">Auf Standard zurücksetzen</button></div>
+      </div>
     </div>
   </main>
 </div>
@@ -618,8 +632,10 @@
   <div class="modal" style="max-width:460px">
     <div class="modal-head"><h3>Turnier aufsetzen</h3><button class="x-close" data-close-group>×</button></div>
     <div class="modal-body">
-      <p class="hint" style="margin-top:0;color:var(--muted);font-size:13px">
-        Die Teilnehmer kommen aus der gespeicherten Setzung. Fehlende Plätze werden mit Freilosen aufgefüllt.</p>
+      <div style="background:var(--ok-soft,#E8F3EC);border:1px solid #cfe4d7;border-radius:10px;padding:12px 14px;margin-bottom:14px">
+        <strong style="font-size:15px"><span id="grCount">0</span> Teilnehmer erkannt</strong>
+        <div style="color:var(--muted);font-size:12px;margin-top:2px">aus der gespeicherten Setzung · passende Spielmodi sind vorausgewählt</div>
+      </div>
       <label class="lbl">Spielmodus</label>
       <select id="grMode" class="field"></select>
       <label class="lbl" style="margin-top:14px">Gewinnsätze</label>
@@ -1278,6 +1294,10 @@ async function loadSettings(){
   if($("#brYear")) $("#brYear").value=BRANDING.year||"";
   if($("#brVersion")) $("#brVersion").value=BRANDING.version||"";
   renderBrandFoot();
+
+  const {data:rp}=await sb.from("app_settings").select("value").eq("key","ranking_points").maybeSingle();
+  if(rp?.value){ if(rp.value.points) RANK_POINTS=rp.value.points; if(rp.value.tail!=null) POINTS_TAIL=rp.value.tail; if(Array.isArray(rp.value.tiers)&&rp.value.tiers.length) MULT_TIERS=rp.value.tiers; }
+  renderPointsCfg();
 }
 function renderBrandFoot(){
   const el=$("#appFoot"); if(!el) return;
@@ -1288,6 +1308,40 @@ async function saveBranding(){
   const {error}=await sb.from("app_settings").upsert({key:"branding",value:BRANDING,updated_at:new Date().toISOString()});
   if(error){ toast(error.message,true); return; }
   renderBrandFoot(); toast("Branding gespeichert.");
+}
+const DEFAULT_RANK_POINTS = {1:200,2:150,3:110,4:100,5:95,6:90,7:85,8:80,9:75,10:70,11:65,12:60,13:55,14:50,15:45,16:40,17:38,18:36,19:34,20:32,21:30,22:28,23:26,24:24,25:22,26:20,27:18,28:16,29:14,30:12,31:10,32:8};
+const DEFAULT_TIERS = [{max:6,f:1.00},{max:12,f:1.25},{max:16,f:1.50},{max:20,f:1.75},{max:9999,f:1.85}];
+function renderPointsCfg(){
+  const grid=$("#ptGrid"); if(!grid) return;
+  let h="";
+  for(let r=1;r<=32;r++){ h+=`<div style="display:flex;align-items:center;gap:6px"><span class="mono" style="width:26px;text-align:right;color:var(--muted)">${r}.</span><input class="field mono ptp" data-rank="${r}" type="number" min="0" step="0.5" value="${RANK_POINTS[r]??0}" style="padding:6px"></div>`; }
+  grid.innerHTML=h;
+  if($("#ptTail")) $("#ptTail").value=POINTS_TAIL;
+  renderTiers();
+}
+function renderTiers(){
+  const box=$("#ptTiers"); if(!box) return;
+  box.innerHTML = MULT_TIERS.map((t,i)=>`
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">
+      <span style="color:var(--muted);font-size:13px">bis</span>
+      <input class="field mono tmax" data-i="${i}" type="number" min="1" value="${t.max}" style="max-width:110px">
+      <span style="color:var(--muted);font-size:13px">Teilnehmer → Faktor</span>
+      <input class="field mono tf" data-i="${i}" type="number" min="0" step="0.05" value="${t.f}" style="max-width:100px">
+      <button class="btn btn-ghost btn-sm" data-tdel="${i}">✕</button>
+    </div>`).join("");
+  box.querySelectorAll(".tmax").forEach(inp=>inp.addEventListener("change",()=>{ MULT_TIERS[+inp.dataset.i].max=parseInt(inp.value)||9999; }));
+  box.querySelectorAll(".tf").forEach(inp=>inp.addEventListener("change",()=>{ MULT_TIERS[+inp.dataset.i].f=parseFloat(inp.value)||1; }));
+  box.querySelectorAll("[data-tdel]").forEach(b=>b.addEventListener("click",()=>{ MULT_TIERS.splice(+b.dataset.tdel,1); renderTiers(); }));
+}
+async function savePointsCfg(){
+  const pts={}; $("#ptGrid").querySelectorAll(".ptp").forEach(inp=>{ pts[+inp.dataset.rank]=parseFloat(inp.value)||0; });
+  RANK_POINTS=pts; POINTS_TAIL=parseFloat($("#ptTail").value)||0;
+  const tiers=[]; $("#ptTiers").querySelectorAll(".tmax").forEach(inp=>{ const i=+inp.dataset.i; const f=$("#ptTiers").querySelector(`.tf[data-i="${i}"]`); tiers.push({max:parseInt(inp.value)||9999, f:parseFloat(f?f.value:1)||1}); });
+  tiers.sort((a,b)=>a.max-b.max); if(tiers.length) MULT_TIERS=tiers;
+  const cfg={points:RANK_POINTS, tail:POINTS_TAIL, tiers:MULT_TIERS};
+  const {error}=await sb.from("app_settings").upsert({key:"ranking_points",value:cfg,updated_at:new Date().toISOString()});
+  if(error){ toast(error.message,true); return; }
+  toast("Ranglisten-Punkte gespeichert.");
 }
 function renderRankingSiteInputs(){
   const box=$("#rsFields"); if(!box) return;
@@ -1362,6 +1416,16 @@ $("#newCourtName").addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preve
 $("#saveCourtsBtn").addEventListener("click", saveCourts);
 $("#saveRankingSiteBtn").addEventListener("click", saveRankingSite);
 $("#saveBrandingBtn").addEventListener("click", saveBranding);
+$("#savePointsBtn").addEventListener("click", savePointsCfg);
+$("#ptAddTier").addEventListener("click", ()=>{ MULT_TIERS.push({max:9999,f:1.85}); renderTiers(); });
+$("#resetPointsBtn").addEventListener("click", async ()=>{
+  if(!confirm("Punktetabelle und Multiplikatoren auf die Standardwerte zurücksetzen?")) return;
+  RANK_POINTS=Object.assign({},DEFAULT_RANK_POINTS);
+  POINTS_TAIL=5;
+  MULT_TIERS=DEFAULT_TIERS.map(t=>Object.assign({},t));
+  renderPointsCfg();
+  await savePointsCfg();
+});
 $("#saveGuestFeeBtn").addEventListener("click", async ()=>{
   GUEST_FEE = parseFloat($("#guestFee").value)||0;
   const {error}=await sb.from("app_settings").upsert({key:"guest_fee",value:GUEST_FEE,updated_at:new Date().toISOString()});
@@ -2526,9 +2590,11 @@ function computeStandings(groupId){
 }
 
 // ---------- Vereinsrangliste: Punkte & Endplatzierung ----------
-const RANK_POINTS = {1:200,2:150,3:110,4:100,5:95,6:90,7:85,8:80,9:75,10:70,11:65,12:60,13:55,14:50,15:45,16:40,17:38,18:36,19:34,20:32,21:30,22:28,23:26,24:24,25:22,26:20,27:18,28:16,29:14,30:12,31:10,32:8};
-function pointsForRank(r){ if(RANK_POINTS[r]!=null) return RANK_POINTS[r]; if(r>=33 && r<=128) return 5; return 0; }
-function multiplierFor(n){ if(n<=6) return 1.00; if(n<=12) return 1.25; if(n<=16) return 1.50; if(n<=20) return 1.75; return 1.85; }
+let RANK_POINTS = {1:200,2:150,3:110,4:100,5:95,6:90,7:85,8:80,9:75,10:70,11:65,12:60,13:55,14:50,15:45,16:40,17:38,18:36,19:34,20:32,21:30,22:28,23:26,24:24,25:22,26:20,27:18,28:16,29:14,30:12,31:10,32:8};
+let POINTS_TAIL = 5;   // Plätze 33–128
+let MULT_TIERS = [{max:6,f:1.00},{max:12,f:1.25},{max:16,f:1.50},{max:20,f:1.75},{max:9999,f:1.85}];
+function pointsForRank(r){ if(RANK_POINTS[r]!=null) return Number(RANK_POINTS[r]); if(r>=33 && r<=128) return Number(POINTS_TAIL)||0; return 0; }
+function multiplierFor(n){ for(const t of MULT_TIERS){ if(n<=t.max) return Number(t.f)||1; } return 1; }
 function eventPoints(rank,n){ return Math.round(pointsForRank(rank)*multiplierFor(n)*100)/100; }
 
 function parsePlaceRange(s){
@@ -2626,8 +2692,19 @@ function orderPlayers(ids, criteria, stat, gmatches, ppw){
 // ---- Turnier aufsetzen ----
 function fillModeSelect(){
   const seeded=seedList.length;
-  const opts=MODES.filter(m=> seeded>=m.min).map(m=>`<option value="${m.id}">${esc(m.label)}</option>`).join("");
-  $("#grMode").innerHTML=opts||`<option value="">Zu wenige Spieler gesetzt</option>`;
+  // Nur Modi anbieten, die zur erkannten Teilnehmerzahl passen (Minimum UND Maximum)
+  const fit=MODES.filter(m=> seeded>=m.min && (m.max==null || seeded<=m.max || m.sizable));
+  const opts=fit.map(m=>`<option value="${m.id}">${esc(m.label)}</option>`).join("");
+  $("#grMode").innerHTML=opts||`<option value="">Kein passender Modus für ${seeded} Teilnehmer</option>`;
+  // Den spezifischsten Modus vorwählen (engster Bereich = am besten passend)
+  if(fit.length){
+    const best=fit.slice().sort((a,b)=>{
+      const ra=(a.max==null?9999:a.max)-a.min, rb=(b.max==null?9999:b.max)-b.min;
+      return ra-rb;
+    })[0];
+    $("#grMode").value=best.id;
+  }
+  if($("#grCount")) $("#grCount").textContent=seeded;
   syncModeUi();
 }
 function syncModeUi(){
