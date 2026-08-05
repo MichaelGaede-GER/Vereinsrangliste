@@ -244,6 +244,9 @@
     text-align:center;font-family:var(--f-mono);font-size:18px;font-weight:700}
   .score::-webkit-outer-spin-button,.score::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
   .score[type=number]{-moz-appearance:textfield;appearance:textfield}
+  .score.padsel{border-color:var(--ok);box-shadow:0 0 0 3px var(--ok-soft,#E8F3EC)}
+  .padnum:active{background:var(--ok-soft,#E8F3EC)}
+  @media (max-width:640px){ #padGrid{grid-template-columns:repeat(5,1fr)} .padnum{padding:16px 0 !important;font-size:20px !important} }
   table.standings{width:100%;border-collapse:collapse}
   table.standings th{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.03em;
     color:var(--muted);text-align:left;padding:8px 10px;border-bottom:1px solid var(--border)}
@@ -698,6 +701,17 @@
     <div class="modal-body">
       <div id="resMatchup" style="display:flex;justify-content:space-between;align-items:center;gap:10px;font-weight:600;margin-bottom:18px"></div>
       <div id="setRows"></div>
+      <div id="padWrap" class="hidden" style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <span style="font-size:13px;color:var(--muted)" id="padTitle">Punkte wählen</span>
+          <button class="btn btn-ghost btn-sm" id="padClose">Schließen</button>
+        </div>
+        <div id="padGrid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px"></div>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button class="btn btn-sm" id="padPrev" style="flex:1">← zurück</button>
+          <button class="btn btn-sm" id="padNext" style="flex:1">mehr →</button>
+        </div>
+      </div>
       <div id="setTally" style="text-align:center;margin-top:16px;font-family:var(--f-body);font-weight:600"></div>
       <div id="retireRow" style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
         <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Aufgabe wegen Verletzung — der Gegner gewinnt kampflos, der verletzte Spieler wird als Freilos weitergeschoben und am Turnierende zuletzt platziert.</div>
@@ -3312,16 +3326,22 @@ function openResultModal(mid){
       <input class="score setinp" data-si="${i}" data-side="a" type="number" min="0" inputmode="numeric" value="${s[1]??""}"></div>`;
   }
   $("#setRows").innerHTML=html;
+  // Auf Touch-Geräten das Zahlenfeld statt der Bildschirmtastatur verwenden
+  const isTouch = window.matchMedia("(pointer:coarse)").matches;
   $("#setRows").querySelectorAll(".setinp").forEach(inp=>{
+    if(isTouch) inp.setAttribute("readonly","readonly");
+    // Antippen öffnet das Ziffernfeld (auf Touch-Geräten ohne Tastatur)
+    inp.addEventListener("focus",()=>openPad(inp));
+    inp.addEventListener("click",()=>openPad(inp));
     inp.addEventListener("input",()=>{
       // Egal in welches Feld man die Verlierer-Punkte tippt, ins ANDERE Feld
-      // kommt der Gewinner-Wert: 0–9 → 11, 10 → 12, 11 → 13 … (Sieg mit 2 Punkten Vorsprung)
+      // kommt der Gewinner-Wert: 0–9 → 11, ab 10 immer zwei mehr
       if(inp.value!==""){
         const x=parseInt(inp.value);
         if(!isNaN(x)){
           const otherSide = inp.dataset.side==="h" ? "a" : "h";
           const other=$("#setRows").querySelector(`.setinp[data-si="${inp.dataset.si}"][data-side="${otherSide}"]`);
-          if(other) other.value = x<=9 ? 11 : x+2;
+          if(other) other.value = counterValue(x);
         }
       }
       updateTally();
@@ -3339,6 +3359,8 @@ function openResultModal(mid){
     $("#retireAwayBtn").onclick = ()=>retirePlayer(ar, hr);
   } else { rrow.style.display="none"; }
   $("#resultModal").classList.remove("hidden");
+  $("#padWrap").classList.add("hidden");
+  document.querySelectorAll(".setinp").forEach(x=>x.classList.remove("padsel"));
 }
 async function retirePlayer(retiredReg, winnerReg){
   const nm=regShort(retiredReg);
@@ -3353,6 +3375,52 @@ async function retirePlayer(retiredReg, winnerReg){
   await assignCourts();
   toast(nm+" hat aufgegeben – Gegner kampflos weiter.");
 }
+
+// ---------- Ziffernfeld für Ergebnis-Eingabe (Handy-freundlich) ----------
+let padTarget=null, padPage=0;
+// Gegenwert nach der Regel: 0–9 → 11, ab 10 immer +2
+function counterValue(x){ return x<=9 ? 11 : x+2; }
+function openPad(inp){
+  padTarget=inp;
+  const v=parseInt(inp.value);
+  padPage = (!isNaN(v) && v>=10) ? 1 : 0;
+  const si=+inp.dataset.si;
+  $("#padTitle").textContent = `Satz ${si+1} · ${inp.dataset.side==="h"?"linke":"rechte"} Seite`;
+  $("#padWrap").classList.remove("hidden");
+  renderPad();
+  document.querySelectorAll(".setinp").forEach(x=>x.classList.remove("padsel"));
+  inp.classList.add("padsel");
+}
+function renderPad(){
+  const from = padPage===0 ? 0 : 10+(padPage-1)*10;
+  const to   = from+9;
+  let h="";
+  for(let n=from;n<=to;n++){
+    h+=`<button class="btn padnum" data-n="${n}" style="padding:14px 0;font-size:19px;font-weight:700;font-family:var(--f-mono)">${n}</button>`;
+  }
+  $("#padGrid").innerHTML=h;
+  $("#padPrev").disabled = padPage===0;
+  $("#padPrev").style.opacity = padPage===0?".45":"1";
+  $("#padGrid").querySelectorAll(".padnum").forEach(b=>b.addEventListener("click",()=>padPick(+b.dataset.n)));
+}
+function padPick(n){
+  if(!padTarget) return;
+  padTarget.value=n;
+  // Gegenseite automatisch füllen (gleiche Regel wie beim Tippen)
+  const otherSide = padTarget.dataset.side==="h" ? "a" : "h";
+  const other=$("#setRows").querySelector(`.setinp[data-si="${padTarget.dataset.si}"][data-side="${otherSide}"]`);
+  if(other) other.value = counterValue(n);
+  updateTally();
+  // automatisch zum nächsten noch leeren Feld weiterspringen
+  const all=[...$("#setRows").querySelectorAll(".setinp")];
+  const next=all.find(x=>x.value==="");
+  if(next){ openPad(next); }
+  else { $("#padWrap").classList.add("hidden"); all.forEach(x=>x.classList.remove("padsel")); }
+}
+$("#padPrev").addEventListener("click", ()=>{ if(padPage>0){ padPage--; renderPad(); } });
+$("#padNext").addEventListener("click", ()=>{ padPage++; renderPad(); });
+$("#padClose").addEventListener("click", ()=>{ $("#padWrap").classList.add("hidden");
+  document.querySelectorAll(".setinp").forEach(x=>x.classList.remove("padsel")); });
 
 function readSets(){
   const rows={};
