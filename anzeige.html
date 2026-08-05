@@ -113,14 +113,22 @@ async function load(){
   // Session vorhanden?
   const { data:{ session } } = await sb.auth.getSession();
   if(!session){ showLogin(); return; }
-  if(!eventId){ $("#app").innerHTML = `<div class="empty" style="margin:12vh 28px">Kein Event angegeben. Öffne die Anzeige über den Button „Live-Anzeige öffnen" in der App.</div>`; return; }
+
+  // Ohne ?event=… wird das aktuell live geschaltete Event gezeigt
+  let evId = eventId;
+  if(!evId){
+    try{ const lv=await sb.from("public_live_event").select("id").maybeSingle();
+         evId = lv.data ? lv.data.id : null; }catch(e){ evId=null; }
+  }
+  if(!evId){ $("#app").innerHTML = `<div class="empty" style="margin:12vh 28px">Zurzeit ist kein Turnier live geschaltet.<br><span style="font-size:14px">In der App im gewünschten Event auf „Live schalten" klicken.</span></div>`;
+    clearTimeout(window.__t); window.__t=setTimeout(()=>location.reload(), 10000); return; }
 
   const [{ data:ev }, { data:regs }, { data:players }, { data:matches }] = await Promise.all([
-    sb.from("events").select("name,courts").eq("id",eventId).maybeSingle(),
-    sb.from("registrations").select("id,player_id,guest_first_name,guest_last_name").eq("event_id",eventId),
+    sb.from("events").select("name,courts").eq("id",evId).maybeSingle(),
+    sb.from("registrations").select("id,player_id,guest_first_name,guest_last_name").eq("event_id",evId),
     sb.from("players").select("id,first_name,last_name"),
     sb.from("matches").select("id,label,court,display_status,home_reg_id,away_reg_id,home_label,away_label,scheduled_time,sort_order")
-      .eq("event_id",eventId).not("display_status","is",null)
+      .eq("event_id",evId).not("display_status","is",null)
   ]);
 
   const regMap={}; (regs||[]).forEach(r=>regMap[r.id]=r);

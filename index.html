@@ -380,7 +380,8 @@
           <h2 id="dName"></h2>
           <div class="detail-sub" id="dSub"></div>
         </div>
-        <div style="display:flex;gap:8px">
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="btn btn-sm" id="liveToggleBtn">● Live schalten</button>
           <button class="btn btn-sm" id="editEventBtn">Bearbeiten</button>
         </div>
       </div>
@@ -1173,7 +1174,7 @@ function renderEvents(){
     const open=eventOpen(e);
     const reg=e.max_participants?`${e._count} / ${e.max_participants}`:`${e._count}`;
     return `<div class="event-card" data-eo="${e.id}">
-      <div class="ec-top"><div class="ec-name">${esc(e.name)}</div>
+      <div class="ec-top"><div class="ec-name">${esc(e.name)}${e.live_at?' <span class="badge" style="background:#FBEAE9;color:#C4362F;border-color:#f3c9c6;font-size:10px">● LIVE</span>':""}</div>
         <span class="pill ${open?"open":"closed"}">${open?"offen":"zu"}</span></div>
       <div class="ec-meta">
         <span>${e.event_date?fmtDate(e.event_date):"Kein Datum"}${e.start_time?", "+e.start_time.slice(0,5)+" Uhr":""}</span>
@@ -1249,6 +1250,7 @@ async function openEvent(id){
   if(data.event_date) sub.push(fmtDate(data.event_date)+(data.start_time?", "+data.start_time.slice(0,5)+" Uhr":""));
   if(data.location) sub.push(esc(data.location));
   $("#dSub").innerHTML=sub.map(s=>`<span>${s}</span>`).join("");
+  renderLiveBtn();
 
   // Anmeldungen laden
   const {data:regs}=await sb.from("registrations").select("*").eq("event_id",id).order("registered_at");
@@ -1474,6 +1476,37 @@ async function saveRankingSite(){
   if(error){ toast(error.message,true); return; }
   toast("Banner & Sponsoren gespeichert.");
 }
+// ---------- Live-Schaltung ----------
+function renderLiveBtn(){
+  const b=$("#liveToggleBtn"); if(!b||!currentEvent) return;
+  const on=!!currentEvent.live_at;
+  b.innerHTML = on ? "● Live – aktiv" : "○ Live schalten";
+  b.style.cssText = on
+    ? "background:#C4362F;border-color:#C4362F;color:#fff;font-weight:700"
+    : "";
+  b.title = on ? "Dieses Event wird auf der Live-Anzeige gezeigt. Klicken zum Beenden."
+               : "Dieses Event auf der festen Live-Anzeige zeigen";
+  b.style.display = canManage() ? "" : "none";
+}
+async function toggleLive(){
+  if(!currentEvent) return;
+  if(!canManage()){ toast("Keine Berechtigung.",true); return; }
+  const on=!!currentEvent.live_at;
+  if(on){
+    const {error}=await sb.from("events").update({live_at:null}).eq("id",currentEvent.id);
+    if(error){ toast(error.message,true); return; }
+    currentEvent.live_at=null; renderLiveBtn();
+    toast("Live-Schaltung beendet.");
+  }else{
+    const ts=new Date().toISOString();
+    const {error}=await sb.from("events").update({live_at:ts}).eq("id",currentEvent.id);
+    if(error){ toast(error.message,true); return; }
+    currentEvent.live_at=ts; renderLiveBtn();
+    toast("Event ist jetzt live – erscheint auf der Anzeige-Seite.");
+  }
+  loadEvents();
+}
+
 function renderCourtBar(){
   const bar=$("#courtBar"); if(!bar||!currentEvent) return;
   const act=eventCourts();
@@ -2872,9 +2905,10 @@ function syncModeUi(){
   }
   const h=$("#grHint"); h.className="msg-box ok"; h.textContent=msg;
 }
+$("#liveToggleBtn").addEventListener("click", toggleLive);
 $("#openBoardBtn").addEventListener("click", ()=>{
-  if(!currentEvent){ toast("Bitte zuerst ein Event öffnen.",true); return; }
-  window.open("anzeige.html?event="+encodeURIComponent(currentEvent.id), "_blank");
+  const dir=location.pathname.replace(/\/[^/]*$/,"/");
+  window.open(location.origin+dir+"anzeige.html","_blank");
 });
 $("#hideByes").addEventListener("change", (e)=>{ SHOW_BYES = !e.target.checked; renderGroups(); });
 $("#autoCourts").addEventListener("change", async (e)=>{
