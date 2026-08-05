@@ -116,7 +116,7 @@ async function load(){
   if(!eventId){ $("#app").innerHTML = `<div class="empty" style="margin:12vh 28px">Kein Event angegeben. Öffne die Anzeige über den Button „Live-Anzeige öffnen" in der App.</div>`; return; }
 
   const [{ data:ev }, { data:regs }, { data:players }, { data:matches }] = await Promise.all([
-    sb.from("events").select("name").eq("id",eventId).maybeSingle(),
+    sb.from("events").select("name,courts").eq("id",eventId).maybeSingle(),
     sb.from("registrations").select("id,player_id,guest_first_name,guest_last_name").eq("event_id",eventId),
     sb.from("players").select("id,first_name,last_name"),
     sb.from("matches").select("id,label,court,display_status,home_reg_id,away_reg_id,home_label,away_label,scheduled_time,sort_order")
@@ -131,7 +131,8 @@ async function load(){
   const onCourt=(matches||[]).filter(m=>m.display_status==="court" && bothOk(m)).sort(sortFn);
   const prepAll=(matches||[]).filter(m=>m.display_status==="prep" && bothOk(m) && (m.home_label || (m.home_reg_id && m.away_reg_id)))
     .sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
-  const prep=prepAll.slice(0, onCourt.length || 4);   // gleiche Anzahl wie aktive Courts
+  const nCourts = (ev && Array.isArray(ev.courts) && ev.courts.length) ? ev.courts.length : 0;
+  const prep=prepAll.slice(0, nCourts || onCourt.length || 4);   // so viele wie aktive Courts
 
   const now=new Date().toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"});
   $("#app").innerHTML = `
