@@ -368,6 +368,12 @@
         <div style="display:flex;align-items:center;gap:12px"><h2>Events</h2><span class="count" id="eventCount">0</span></div>
         <button class="btn btn-primary" id="addEventBtn">+ Neues Event</button>
       </div>
+      <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:12px;font-size:12px;color:var(--muted);align-items:center">
+        <span><span class="badge" style="background:#E8F3EC;color:#2E7D4F;border-color:#cfe4d7;font-size:10px">ausgespielt</span> alle Spiele gespielt</span>
+        <span><span class="badge" style="background:#fdf1e0;color:#b45309;border-color:#f2d9b4;font-size:10px">läuft</span> Ergebnisse teilweise da</span>
+        <span><span class="badge" style="background:#EFF1ED;color:#5E6B64;border-color:#e0e4de;font-size:10px">aufgesetzt</span> Spielplan ohne Ergebnisse</span>
+        <span><span class="badge" style="background:#f1ebfd;color:#6d28d9;border-color:#ddd0f7;font-size:10px">nur Platzierung</span> ohne Einzelspiele nachgetragen</span>
+      </div>
       <div class="events-grid" id="eventsGrid"></div>
       <div id="eventsEmpty" class="empty card hidden">
         <strong>Noch keine Events</strong>
@@ -1173,7 +1179,31 @@ async function loadEvents(){
   const {data:regs}=await sb.from("registrations").select("event_id,status");
   const counts={}; (regs||[]).forEach(r=>{ if(r.status!=="withdrawn") counts[r.event_id]=(counts[r.event_id]||0)+1; });
   EVENTS.forEach(e=> e._count = counts[e.id]||0);
+  // Spielbetrieb je Event: wie viele Spiele angelegt / davon mit Ergebnis gespielt
+  const {data:ms}=await sb.from("matches").select("event_id,status,is_bye,home_score");
+  const tot={}, done={};
+  (ms||[]).forEach(m=>{
+    if(m.is_bye) return;
+    tot[m.event_id]=(tot[m.event_id]||0)+1;
+    if(m.status==="done" && m.home_score!=null) done[m.event_id]=(done[m.event_id]||0)+1;
+  });
+  EVENTS.forEach(e=>{ e._mTotal=tot[e.id]||0; e._mDone=done[e.id]||0; });
   renderEvents();
+}
+// Zustand eines Events für die Übersicht
+function eventPlayState(e){
+  const finalized=!!e.finalized_at;
+  if(e._mTotal>0){
+    if(e._mDone>=e._mTotal) return {key:"played", label:"ausgespielt", color:"#2E7D4F", bg:"#E8F3EC", bd:"#cfe4d7",
+      title:`Turnier komplett gespielt (${e._mDone} Spiele)`};
+    if(e._mDone>0) return {key:"running", label:`läuft ${e._mDone}/${e._mTotal}`, color:"#b45309", bg:"#fdf1e0", bd:"#f2d9b4",
+      title:"Turnier läuft – Ergebnisse teilweise eingetragen"};
+    return {key:"setup", label:"aufgesetzt", color:"#5E6B64", bg:"#EFF1ED", bd:"#e0e4de",
+      title:"Spielplan erstellt, noch keine Ergebnisse"};
+  }
+  if(finalized) return {key:"manual", label:"nur Platzierung", color:"#6d28d9", bg:"#f1ebfd", bd:"#ddd0f7",
+    title:"Nur Endplatzierung erfasst – keine Einzelspiele (kein direkter Vergleich)"};
+  return null;
 }
 function eventOpen(e){
   if(!e.is_registration_open) return false;
@@ -1187,6 +1217,9 @@ function renderEvents(){
   $("#eventsGrid").innerHTML=EVENTS.map(e=>{
     const open=eventOpen(e);
     const reg=e.max_participants?`${e._count} / ${e.max_participants}`:`${e._count}`;
+    const ps=eventPlayState(e);
+    const psTag = ps?`<span class="badge" title="${esc(ps.title)}" style="background:${ps.bg};color:${ps.color};border-color:${ps.bd};font-size:10px">${esc(ps.label)}</span>`:"";
+    const fin = e.finalized_at?`<span class="badge" title="Endplatzierung gespeichert – zählt für die Rangliste" style="font-size:10px">gewertet</span>`:"";
     return `<div class="event-card" data-eo="${e.id}">
       <div class="ec-top"><div class="ec-name">${esc(e.name)}${e.live_at?' <span class="badge" style="background:#FBEAE9;color:#C4362F;border-color:#f3c9c6;font-size:10px">● LIVE</span>':""}</div>
         <span class="pill ${open?"open":"closed"}">${open?"offen":"zu"}</span></div>
@@ -1194,6 +1227,7 @@ function renderEvents(){
         <span>${e.event_date?fmtDate(e.event_date):"Kein Datum"}${e.start_time?", "+e.start_time.slice(0,5)+" Uhr":""}</span>
         ${e.location?`<span>${esc(e.location)}</span>`:""}
       </div>
+      ${(psTag||fin)?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">${psTag}${fin}</div>`:""}
       <div class="ec-foot"><span class="ec-reg">${reg} angemeldet</span>
         <span class="btn btn-ghost btn-sm">Öffnen →</span></div>
     </div>`;
