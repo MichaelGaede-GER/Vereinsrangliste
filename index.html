@@ -229,6 +229,15 @@
   table.matches tr:last-child td{border-bottom:none}
   table.matches tr.byerow{background:#F4F0E7 !important;color:var(--muted)}
   table.matches tr.byerow .who{color:var(--muted)}
+  /* Laufende Spiele (auf dem Court) deutlich hervorheben */
+  table.matches tr.oncourt{background:#E8F3EC !important;box-shadow:inset 4px 0 0 var(--ok,#2E7D4F)}
+  table.matches tr.oncourt td{font-weight:600}
+  table.matches tr.oncourt:hover{background:#dcecE2 !important}
+  /* Spiele in Vorbereitung dezent markieren */
+  table.matches tr.inprep{background:#FDF6EC !important;box-shadow:inset 4px 0 0 #E0A33E}
+  table.matches tr.inprep:hover{background:#f8eedd !important}
+  /* Beendete Spiele leicht zurücknehmen */
+  table.matches tr.isdone td{color:var(--muted)}
   .seedtag{display:inline-block;min-width:18px;padding:0 5px;margin-right:6px;border-radius:9px;
     background:var(--ok-soft,#E8F3EC);color:var(--ok,#2E7D4F);font-family:var(--f-mono,monospace);
     font-size:11px;font-weight:700;text-align:center;line-height:17px;vertical-align:baseline}
@@ -2434,6 +2443,13 @@ function statusCell(m){
     <option value="done"${s==="done"?" selected":""}>Beendet</option>
   </select></td>`;
 }
+function rowClass(m, bye){
+  if(bye) return "byerow";
+  if(m.display_status==="court") return "oncourt";
+  if(m.status==="done" || m.display_status==="done") return "isdone";
+  if(m.display_status==="prep") return "inprep";
+  return "";
+}
 function timeCell(m){
   return `<td><input class="mini time" type="time" data-mid="${m.id}" data-f="time" value="${m.scheduled_time?m.scheduled_time.slice(0,5):""}"></td>`;
 }
@@ -2636,7 +2652,7 @@ function renderGroupBlock(g,need){
     const an = m.away_reg_id?regShortS(m.away_reg_id):"Freilos";
     const cell = bye ? `<span style="color:var(--ok);font-size:13px">kampflos</span>` : matchSummary(m);
     return `
-    <tr class="${bye?"byerow":""}">
+    <tr class="${rowClass(m,bye)}">
       <td class="mno">${m.match_no??""}</td>
       ${schedCells(m, !bye)}
       <td class="who" style="text-align:right">${hn}</td>
@@ -2692,7 +2708,7 @@ function renderFinalBlock(g,need){
     else if(H.reg && A.reg){ cell=matchSummary(m); }
     else if(H.reg || A.reg){ const w=H.reg||A.reg; cell=`<span style="color:var(--ok);font-size:13px">${regShort(w)} — kampflos</span>`; }
     else { cell=`<span style="color:var(--muted)">entfällt</span>`; }
-    return `<tr class="${bye?"byerow":""}">
+    return `<tr class="${rowClass(m,bye)}">
       <td class="mno">${m.match_no??""}</td>
       ${schedCells(m, !bye)}
       <td class="who" style="text-align:right">${nm(H)}</td>
@@ -2732,7 +2748,7 @@ function renderStandalone(need, before){
     else if(H.reg && A.reg){ cell=matchSummary(m); }
     else if(H.reg || A.reg){ const w=H.reg||A.reg; cell=`<span style="color:var(--ok);font-size:13px">${regShort(w)} — kampflos</span>`; }
     else { cell=`<span style="color:var(--muted)">entfällt</span>`; }
-    return `<tr class="${bye?"byerow":""}">
+    return `<tr class="${rowClass(m,bye)}">
       <td style="font-weight:500">${esc(m.label||"")}</td>
       ${schedCells(m, !bye)}
       <td class="who" style="text-align:right">${homeName}</td>
