@@ -2771,6 +2771,14 @@ function matchSummary(m){
   const played=sets.filter(s=>s&&s.length===2&&s[0]!=null&&s[1]!=null);
   if(!played.length) return `<button class="btn btn-sm" data-res="${m.id}">Ergebnis</button>`;
   let hs=0,as=0; const parts=played.map(s=>{ if(s[0]>s[1])hs++; else if(s[1]>s[0])as++; return `${s[0]}:${s[1]}`; });
+  const need=(currentEvent&&currentEvent.win_sets)||3;
+  const fertig = hs>=need || as>=need;
+  if(!fertig){
+    // Spiel läuft noch: Zwischenstand + weiterhin Eingabe-Button
+    return `<button class="btn btn-sm" data-res="${m.id}" style="background:#FDF6EC;border-color:#E0A33E;color:#8a5a12">
+      <span class="mono" style="font-weight:700">${hs}:${as}</span>
+      <span style="font-size:11px;margin-left:6px">${parts.join(" ")} · Ergebnis</span></button>`;
+  }
   return `<button class="btn btn-ghost btn-sm" data-res="${m.id}">
     <span class="mono" style="font-weight:600;color:var(--ink)">${hs}:${as}</span>
     <span style="color:var(--muted);font-size:11px;margin-left:6px">${parts.join(" ")}</span></button>`;

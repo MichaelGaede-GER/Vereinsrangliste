@@ -20,7 +20,8 @@
   header h1{font-size:22px;margin:0;font-weight:800;letter-spacing:.3px}
   header .ev{color:var(--muted);font-size:15px}
   header .clock{font-variant-numeric:tabular-nums;color:var(--muted);font-size:15px}
-  .wrap{display:grid;grid-template-columns:1fr 1fr;gap:22px;padding:22px 28px}
+  .wrap{display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;padding:22px 28px}
+  @media (max-width:1250px){ .wrap{grid-template-columns:1fr 1fr} }
   @media (max-width:900px){ .wrap{grid-template-columns:1fr} }
   .col h2{font-size:16px;text-transform:uppercase;letter-spacing:1.5px;margin:0 0 12px;display:flex;align-items:center;gap:10px}
   .dot{width:12px;height:12px;border-radius:50%}
@@ -41,6 +42,14 @@
   .timebadge{flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-end;justify-content:center;min-width:78px;padding-left:12px;border-left:1px solid var(--line)}
   .timebadge .tlbl{font-size:11px;letter-spacing:1px;color:var(--muted);text-transform:uppercase}
   .timebadge .tval{font-size:27px;font-weight:800;line-height:1.05;font-variant-numeric:tabular-nums}
+  .scorebadge{flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-end;justify-content:center;min-width:96px;padding-left:12px;border-left:1px solid var(--line)}
+  .scorebadge .tlbl{font-size:11px;letter-spacing:1px;color:var(--muted);text-transform:uppercase}
+  .scorebadge .sval{font-size:30px;font-weight:800;line-height:1.05;font-variant-numeric:tabular-nums}
+  .scorebadge .sets{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap;margin-top:2px}
+  .scorebadge.live .sval{color:var(--court)}
+  .dot.done{background:#64748b}
+  .card.done{border-left:6px solid #64748b;opacity:.85}
+  .card.done .players .vs-row{font-size:19px}
   .empty{color:var(--muted);padding:30px;text-align:center;border:1px dashed var(--line);border-radius:14px}
   .login{max-width:360px;margin:12vh auto;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:26px}
   .login h2{margin:0 0 6px} .login p{color:var(--muted);font-size:14px;margin-top:0}
@@ -93,19 +102,36 @@ function showLogin(msg){
   $("#pw").addEventListener("keydown", e=>{ if(e.key==="Enter") $("#loginBtn").click(); });
 }
 
+function scoreInfo(m){
+  const sets=Array.isArray(m.sets)?m.sets.filter(s=>s&&s[0]!=null&&s[1]!=null):[];
+  if(!sets.length) return null;
+  let hs=0,as=0;
+  const parts=sets.map(s=>{ if(s[0]>s[1])hs++; else if(s[1]>s[0])as++; return s[0]+":"+s[1]; });
+  return { hs, as, parts };
+}
 function card(m, regMap, playerMap){
-  const cls = m.display_status==="court" ? "court" : "prep";
+  const cls = m.display_status==="court" ? "court" : (m.display_status==="done" ? "done" : "prep");
   const home = m.home_label || nameOf(m.home_reg_id, regMap, playerMap);
   const away = m.away_label || nameOf(m.away_reg_id, regMap, playerMap);
   const t = m.scheduled_time ? m.scheduled_time.slice(0,5) : "";
-  const timeBadge = t ? `<div class="timebadge"><span class="tlbl">${cls==="court"?"Start":"ab"}</span><span class="tval">${t}</span></div>` : "";
+  const sc = scoreInfo(m);
+  let right;
+  if(sc){
+    right = `<div class="scorebadge${cls==="court"?" live":""}">
+        <span class="tlbl">${cls==="court"?"Stand":"Ergebnis"}</span>
+        <span class="sval">${sc.hs} : ${sc.as}</span>
+        <span class="sets">${sc.parts.join("  ")}</span>
+      </div>`;
+  }else{
+    right = t ? `<div class="timebadge"><span class="tlbl">${cls==="court"?"Start":"ab"}</span><span class="tval">${t}</span></div>` : "";
+  }
   return `<div class="card ${cls}">
     <div class="courtbadge"><span class="lbl">Court</span><span class="num">${m.court?esc(m.court):"–"}</span></div>
     <div class="players">
       <div class="vs-row"><span class="p home">${esc(home)}</span><span class="vs">vs</span><span class="p away">${esc(away)}</span></div>
       <div class="meta">${esc(m.label||"")}</div>
     </div>
-    ${timeBadge}
+    ${right}
   </div>`;
 }
 
@@ -127,7 +153,7 @@ async function load(){
     sb.from("events").select("name,courts").eq("id",evId).maybeSingle(),
     sb.from("registrations").select("id,player_id,guest_first_name,guest_last_name").eq("event_id",evId),
     sb.from("players").select("id,first_name,last_name"),
-    sb.from("matches").select("id,label,court,display_status,home_reg_id,away_reg_id,home_label,away_label,scheduled_time,sort_order")
+    sb.from("matches").select("id,label,court,display_status,home_reg_id,away_reg_id,home_label,away_label,scheduled_time,sort_order,sets,home_score,away_score,status")
       .eq("event_id",evId).not("display_status","is",null)
   ]);
 
@@ -141,6 +167,10 @@ async function load(){
     .sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
   const nCourts = (ev && Array.isArray(ev.courts) && ev.courts.length) ? ev.courts.length : 0;
   const prep=prepAll.slice(0, nCourts || onCourt.length || 4);   // so viele wie aktive Courts
+  // Zuletzt beendete Spiele (gleiche Anzahl wie Courts)
+  const doneAll=(matches||[]).filter(m=>m.display_status==="done" && bothOk(m))
+    .sort((a,b)=>(b.sort_order||0)-(a.sort_order||0));
+  const doneList=doneAll.slice(0, nCourts || onCourt.length || 4);
 
   const now=new Date().toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"});
   $("#app").innerHTML = `
@@ -156,6 +186,10 @@ async function load(){
       <div class="col">
         <h2><span class="dot prep"></span>In Vorbereitung</h2>
         ${prep.length ? prep.map(m=>card(m,regMap,playerMap)).join("") : `<div class="empty">Keine Spiele in Vorbereitung.</div>`}
+      </div>
+      <div class="col">
+        <h2><span class="dot done"></span>Beendet</h2>
+        ${doneList.length ? doneList.map(m=>card(m,regMap,playerMap)).join("") : `<div class="empty">Noch keine Ergebnisse.</div>`}
       </div>
     </div>`;
   $("#foot").textContent = "Vereinsrangliste Maintal";
