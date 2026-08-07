@@ -485,6 +485,7 @@
             <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);cursor:pointer;margin-right:4px">
               <input type="checkbox" id="hideByes" style="cursor:pointer"> Freilos-Spiele ausblenden</label>
             <button class="btn btn-sm" id="openBoardBtn">Live-Anzeige öffnen ↗</button>
+            <button class="btn btn-sm" id="openTreeBtn">Turnierbaum ↗</button>
             <button class="btn btn-sm" id="placementBtn">Endplatzierung</button>
             <button class="btn btn-sm" id="manualBtn">Manuell erfassen</button>
             <button class="btn btn-sm hidden" id="resetTournBtn">Turnier zurücksetzen</button>
@@ -3032,6 +3033,10 @@ function syncModeUi(){
   }
   const h=$("#grHint"); h.className="msg-box ok"; h.textContent=msg;
 }
+$("#openTreeBtn").addEventListener("click", ()=>{
+  const dir=location.pathname.replace(/\/[^/]*$/,"/");
+  window.open(location.origin+dir+"baum.html"+(currentEvent?"#"+currentEvent.id:""),"_blank");
+});
 $("#liveToggleBtn").addEventListener("click", toggleLive);
 $("#openBoardBtn").addEventListener("click", ()=>{
   const dir=location.pathname.replace(/\/[^/]*$/,"/");

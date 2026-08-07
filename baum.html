@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#2E7D4F">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<title>Turnierbaum · SC Yellow Dot Maintal</title>
+<style>
+  :root{
+    --bg:#F5F6F4; --surface:#FFFFFF; --ink:#16211C; --muted:#5E6B64;
+    --border:#E3E6E1; --accent:#2E7D4F; --ok-soft:#E8F3EC; --gold:#C8A24B;
+    --live:#C4362F; --prep:#E0A33E; --line:#CDD2CB;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;line-height:1.45}
+  .top{max-width:1500px;margin:0 auto;padding:22px 18px 6px;display:flex;align-items:baseline;justify-content:space-between;gap:14px;flex-wrap:wrap}
+  h1{font-size:23px;margin:0;font-weight:800}
+  .sub{color:var(--muted);font-size:14px;margin:2px 0 0}
+  select{padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--surface);
+    color:var(--ink);font-size:15px;font-family:inherit;max-width:340px}
+  .scroller{max-width:1500px;margin:0 auto;padding:14px 18px 40px;overflow-x:auto}
+  .rounds{display:flex;gap:26px;align-items:flex-start;min-width:min-content}
+  .round{flex:0 0 232px}
+  .round h2{font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);
+    margin:0 0 10px;font-weight:700;position:sticky;top:0;background:var(--bg);padding:4px 0}
+  .m{background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:10px;
+    overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+  .m .hd{display:flex;justify-content:space-between;align-items:center;gap:6px;
+    padding:4px 9px;background:#FAFBFA;border-bottom:1px solid var(--border);font-size:10px;color:var(--muted)}
+  .m .hd .no{font-family:ui-monospace,monospace;font-weight:700}
+  .m.live{border-color:var(--live);box-shadow:0 0 0 2px rgba(196,54,47,.13)}
+  .m.live .hd{background:#FBEAE9;color:var(--live);font-weight:700}
+  .m.prep{border-color:var(--prep)}
+  .m.prep .hd{background:#FDF6EC;color:#8a5a12}
+  .side{display:flex;align-items:center;gap:8px;padding:7px 9px;font-size:14px}
+  .side+.side{border-top:1px solid var(--border)}
+  .side .sd{flex:0 0 19px;height:19px;border-radius:5px;background:#EFF1ED;color:var(--muted);
+    font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;font-family:ui-monospace,monospace}
+  .side .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .side .sc{font-family:ui-monospace,monospace;font-weight:700;font-variant-numeric:tabular-nums}
+  .side.win{background:var(--ok-soft)}
+  .side.win .nm{font-weight:800;color:var(--accent)}
+  .side.win .sd{background:#cfe4d7;color:var(--accent)}
+  .side.pending .nm{color:var(--muted);font-style:italic;font-size:13px}
+  .side.bye .nm{color:var(--muted)}
+  .sets{padding:5px 9px;border-top:1px dashed var(--border);font-size:11px;color:var(--muted);
+    font-family:ui-monospace,monospace;text-align:center}
+  .grp{background:var(--surface);border:1px solid var(--border);border-radius:12px;margin-bottom:16px;overflow:hidden}
+  .grp h3{margin:0;padding:11px 14px;font-size:14px;border-bottom:1px solid var(--border);background:#FAFBFA}
+  table{width:100%;border-collapse:collapse}
+  th{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);text-align:left;padding:7px 10px;border-bottom:1px solid var(--border)}
+  td{padding:7px 10px;border-bottom:1px solid var(--border);font-size:14px}
+  tbody tr:last-child td{border-bottom:none}
+  .r{text-align:right;font-variant-numeric:tabular-nums}
+  .pos{width:28px;color:var(--muted);font-weight:700;font-variant-numeric:tabular-nums}
+  .groups{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;margin-bottom:26px}
+  .empty{padding:44px;text-align:center;color:var(--muted)}
+  .foot{color:var(--muted);font-size:12px;text-align:center;padding:10px 18px 30px}
+  .legend{max-width:1500px;margin:0 auto;padding:0 18px;display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+  .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:middle}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+</head>
+<body>
+<div class="top">
+  <div><h1>Turnierbaum</h1><div class="sub" id="evSub"></div></div>
+  <select id="evSel"></select>
+</div>
+<div class="legend">
+  <span><i style="background:#C4362F"></i>läuft gerade</span>
+  <span><i style="background:#E0A33E"></i>in Vorbereitung</span>
+  <span><i style="background:#2E7D4F"></i>Sieger</span>
+</div>
+<div class="scroller" id="content"><div class="empty">Lädt…</div></div>
+<div class="foot" id="foot">SC Yellow Dot Maintal e.V.</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const cfg = window.SUPABASE_CONFIG || {};
+let sb=null, MATCHES=[], GROUPS=[], GPLAYERS=[], REGS={}, WIN_SETS=2;
+
+function esc(s){ return (s==null?"":String(s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function fdate(d){ if(!d) return ""; const p=String(d).slice(0,10).split("-"); return p.length===3?p[2]+"."+p[1]+"."+p[0]:d; }
+const regName = id => (REGS[id] && REGS[id].name) || "—";
+const regSeed = id => (REGS[id] && REGS[id].seed) || null;
+
+// ---- Auflösung wie in der App ----
+function groupMatches(gid){ return MATCHES.filter(m=>m.group_id===gid && m.phase==="group"); }
+function groupComplete(gid){
+  const ms=groupMatches(gid);
+  if(!ms.length) return false;
+  return ms.every(m=> m.is_bye || (m.status==="done" && m.home_score!=null) || outcome(m).decided);
+}
+function groupMemberRegs(gid){
+  return GPLAYERS.filter(gp=>gp.group_id===gid).sort((a,b)=>(a.position||0)-(b.position||0)).map(gp=>{
+    if(gp.registration_id) return gp.registration_id;
+    if(gp.src_match){ const o=outcome(MATCHES.find(x=>x.id===gp.src_match)); return gp.src_type==="winner"?o.winner:o.loser; }
+    if(gp.src_group){ return groupComplete(gp.src_group)?placeReg(gp.src_group,gp.src_place):null; }
+    return null;
+  });
+}
+function standings(gid){
+  const ids=groupMemberRegs(gid).filter(Boolean);
+  const st={}; ids.forEach(id=>st[id]={id,pl:0,w:0,l:0,sf:0,sa:0,bf:0,ba:0,pts:0});
+  groupMatches(gid).forEach(m=>{
+    const sets=Array.isArray(m.sets)?m.sets.filter(s=>s&&s[0]!=null&&s[1]!=null):[];
+    if(!sets.length) return;
+    const h=st[m.home_reg_id], a=st[m.away_reg_id]; if(!h||!a) return;
+    let hs=0,as=0,hb=0,ab=0;
+    sets.forEach(s=>{ hb+=s[0]; ab+=s[1]; if(s[0]>s[1])hs++; else if(s[1]>s[0])as++; });
+    h.pl++; a.pl++; h.sf+=hs; h.sa+=as; a.sf+=as; a.sa+=hs; h.bf+=hb; h.ba+=ab; a.bf+=ab; a.ba+=hb;
+    if(hs>as){ h.w++; a.l++; h.pts+=2; } else if(as>hs){ a.w++; h.l++; a.pts+=2; }
+  });
+  return Object.values(st).sort((x,y)=> y.pts-x.pts || (y.sf-y.sa)-(x.sf-x.sa) || (y.bf-y.ba)-(x.bf-x.ba));
+}
+function placeReg(gid, place){ const t=standings(gid); return t[place-1]?t[place-1].id:null; }
+
+function sideOf(m, side){
+  const g=m[side+"_src_group"], pl=m[side+"_src_place"];
+  const mm=m[side+"_src_match"], tp=m[side+"_src_type"];
+  if(g){
+    const ready=groupComplete(g);
+    const reg=ready?placeReg(g,pl):null;
+    const gname=(GROUPS.find(x=>x.id===g)||{}).name||"Gruppe";
+    return { reg, ready, isBye: ready&&reg===null, label: pl===1?("Sieger "+gname):("Platz "+pl+" · "+gname) };
+  }
+  if(mm){
+    const src=MATCHES.find(x=>x.id===mm);
+    const o=outcome(src);
+    const reg=tp==="winner"?o.winner:o.loser;
+    const nm=(src?(src.label||"Spiel"):"Spiel").replace(/^\d+\s*·\s*/,"");
+    return { reg, ready:o.decided, isBye:o.decided&&reg===null, label:(tp==="winner"?"Sieger ":"Verlierer ")+nm };
+  }
+  return { reg:m[side+"_reg_id"]||null, ready:true, isBye:false, empty:!m[side+"_reg_id"], label:"—" };
+}
+function outcome(m){
+  if(!m) return {decided:false,winner:null,loser:null};
+  const H=sideOf(m,"home"), A=sideOf(m,"away");
+  const hr=H.reg, ar=A.reg;
+  if(m.status==="done" && m.home_score!=null && m.away_score!=null && m.home_score!==m.away_score && hr && ar){
+    const hw=m.home_score>m.away_score;
+    return {decided:true, winner:hw?hr:ar, loser:hw?ar:hr};
+  }
+  const eH=H.isBye||H.empty||(hr&&REGS[hr]&&REGS[hr].retired);
+  const eA=A.isBye||A.empty||(ar&&REGS[ar]&&REGS[ar].retired);
+  if(H.ready&&A.ready){
+    if(eH&&ar&&!eA) return {decided:true,winner:ar,loser:null};
+    if(eA&&hr&&!eH) return {decided:true,winner:hr,loser:null};
+    if(eH&&eA) return {decided:true,winner:null,loser:null};
+  }
+  return {decided:false,winner:null,loser:null};
+}
+
+// ---- Darstellung ----
+function sideRow(S, m, isWinner, score){
+  if(S.reg){
+    const sd=regSeed(S.reg);
+    return `<div class="side${isWinner?" win":""}">
+      <span class="sd">${sd!=null?sd:""}</span>
+      <span class="nm">${esc(regName(S.reg))}</span>
+      <span class="sc">${score!=null?score:""}</span></div>`;
+  }
+  if(S.isBye||S.empty) return `<div class="side bye"><span class="sd"></span><span class="nm">Freilos</span><span class="sc"></span></div>`;
+  return `<div class="side pending"><span class="sd"></span><span class="nm">${esc(S.label)}</span><span class="sc"></span></div>`;
+}
+function matchCard(m){
+  const H=sideOf(m,"home"), A=sideOf(m,"away");
+  const o=outcome(m);
+  const played = m.status==="done" && m.home_score!=null;
+  const cls = m.display_status==="court" ? " live" : (m.display_status==="prep" && !played ? " prep" : "");
+  const no = m.match_no || (m.label||"").match(/^(\d+)/)?.[1] || "";
+  const title=(m.label||"").replace(/^\d+\s*·\s*/,"");
+  const sets=Array.isArray(m.sets)?m.sets.filter(s=>s&&s[0]!=null&&s[1]!=null):[];
+  return `<div class="m${cls}">
+    <div class="hd"><span class="no">${esc(no)}</span><span>${esc(title)}${m.display_status==="court"?" · läuft":""}</span></div>
+    ${sideRow(H,m,played&&o.winner===H.reg, played?m.home_score:null)}
+    ${sideRow(A,m,played&&o.winner===A.reg, played?m.away_score:null)}
+    ${sets.length?`<div class="sets">${sets.map(s=>s[0]+":"+s[1]).join("  ·  ")}</div>`:""}
+  </div>`;
+}
+function groupCard(g){
+  const t=standings(g.id);
+  const ms=groupMatches(g.id).filter(m=>!m.is_bye);
+  return `<div class="grp">
+    <h3>${esc(g.name)}</h3>
+    <table><thead><tr><th>Pl.</th><th>Spieler</th><th class="r">S</th><th class="r">N</th><th class="r">Sätze</th><th class="r">Pkt</th></tr></thead>
+    <tbody>${t.map((s,i)=>`<tr><td class="pos">${i+1}</td><td>${esc(regName(s.id))}</td>
+      <td class="r">${s.w}</td><td class="r">${s.l}</td><td class="r">${s.sf}:${s.sa}</td><td class="r">${s.pts}</td></tr>`).join("")}</tbody></table>
+    ${ms.length?`<table style="border-top:1px solid var(--border)"><tbody>${ms.map(m=>{
+      const played=m.status==="done"&&m.home_score!=null;
+      return `<tr><td style="color:var(--muted);font-size:12px">${m.match_no||""}</td>
+        <td style="text-align:right">${esc(regName(m.home_reg_id))}</td>
+        <td class="r" style="width:52px;font-family:ui-monospace,monospace;font-weight:700">${played?m.home_score+":"+m.away_score:"–"}</td>
+        <td>${esc(regName(m.away_reg_id))}</td></tr>`;}).join("")}</tbody></table>`:""}
+  </div>`;
+}
+
+function render(){
+  const box=$("#content");
+  const groups=GROUPS.slice().sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
+  // Gruppen mit direkten Mitgliedern (Vorrunde)
+  const directGroups=groups.filter(g=> GPLAYERS.some(gp=>gp.group_id===g.id && gp.registration_id));
+  const stand=MATCHES.filter(m=>m.phase!=="group").sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
+  let html="";
+  if(directGroups.length){
+    html += `<div class="groups">${directGroups.map(groupCard).join("")}</div>`;
+  }
+  if(stand.length){
+    // Spiele in Runden gruppieren: sort_order 101.. = Runde 1, 201.. = Runde 2 usw.
+    const rounds={};
+    stand.forEach(m=>{
+      const so=m.sort_order||0;
+      const r = so>=100 ? Math.floor(so/100) : (m.round||1);
+      (rounds[r]=rounds[r]||[]).push(m);
+    });
+    const keys=Object.keys(rounds).map(Number).sort((a,b)=>a-b);
+    html += `<div class="rounds">${keys.map(r=>{
+      const ms=rounds[r];
+      const nm = ms.length===1 ? "Finale" : (r+". Runde");
+      return `<div class="round"><h2>${esc(nm)} · ${ms.length} Spiel${ms.length>1?"e":""}</h2>
+        ${ms.map(matchCard).join("")}</div>`;
+    }).join("")}</div>`;
+  }
+  // Sourced-Gruppen (z. B. Trostrunde) unten
+  const srcGroups=groups.filter(g=> !directGroups.includes(g));
+  if(srcGroups.length) html += `<div class="groups" style="margin-top:22px">${srcGroups.map(groupCard).join("")}</div>`;
+  box.innerHTML = html || `<div class="empty">Für dieses Turnier ist noch kein Spielplan angelegt.</div>`;
+}
+
+async function loadEvent(id){
+  const [mm,gg,gp,rr,ev]=await Promise.all([
+    sb.from("public_matches").select("*").eq("event_id",id).order("sort_order"),
+    sb.from("public_groups").select("*").eq("event_id",id).order("sort_order"),
+    sb.from("public_group_players").select("*"),
+    sb.from("public_participants").select("*").eq("event_id",id),
+    sb.from("public_tournaments").select("*").eq("id",id).maybeSingle()
+  ]);
+  MATCHES=mm.data||[]; GROUPS=gg.data||[];
+  const gids=new Set(GROUPS.map(g=>g.id));
+  GPLAYERS=(gp.data||[]).filter(x=>gids.has(x.group_id));
+  REGS={}; (rr.data||[]).forEach(r=>REGS[r.id]=r);
+  const e=ev.data;
+  $("#evSub").textContent = e ? `${e.name||""}${e.event_date?" · "+fdate(e.event_date):""}` : "";
+  render();
+}
+
+async function init(){
+  if(!cfg.url||!cfg.anonKey){ $("#content").innerHTML=`<div class="empty">config.js fehlt.</div>`; return; }
+  sb = supabase.createClient(cfg.url, cfg.anonKey);
+  try{ const b=await sb.from("public_branding").select("value").maybeSingle();
+    const v=b.data&&b.data.value; if(v&&(v.owner||v.version)) $("#foot").textContent=`© ${v.owner||""} ${v.year||""} · Version ${v.version||""} · SC Yellow Dot Maintal e.V.`.replace(/\s+/g," ").trim();
+  }catch(e){}
+
+  const {data:evs}=await sb.from("public_tournaments").select("*")
+    .order("event_date",{ascending:false}).order("finalized_at",{ascending:false});
+  const list=evs||[];
+  if(!list.length){ $("#content").innerHTML=`<div class="empty">Noch keine Turniere mit Spielplan vorhanden.</div>`; return; }
+  $("#evSel").innerHTML=list.map(e=>`<option value="${e.id}">${esc(e.name||"Turnier")}${e.live_at?" · LIVE":""}</option>`).join("");
+  // Vorauswahl: live geschaltetes Turnier, sonst das neueste
+  const live=list.find(e=>e.live_at);
+  const start=(location.hash.replace("#","")||"")||(live?live.id:list[0].id);
+  $("#evSel").value = list.some(e=>e.id===start)?start:list[0].id;
+  $("#evSel").addEventListener("change",()=>{ history.replaceState(null,"","#"+$("#evSel").value); loadEvent($("#evSel").value); });
+  await loadEvent($("#evSel").value);
+  // sanfte Aktualisierung (kein Seiten-Neuladen)
+  setInterval(()=>{ if(!document.hidden) loadEvent($("#evSel").value).catch(()=>{}); }, 15000);
+}
+init();
+</script>
+</body>
+</html>
