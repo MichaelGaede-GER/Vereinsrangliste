@@ -239,6 +239,14 @@
   /* Beendete Spiele leicht zurücknehmen */
   table.matches tr.isdone td{color:var(--muted)}
   .ballicon{display:inline-flex;align-items:center;justify-content:center;width:15px;flex:0 0 15px}
+  .planfilter{display:inline-flex;background:#EAEDE8;border-radius:10px;padding:4px;margin-bottom:14px;gap:2px}
+  .planfilter button{border:0;background:transparent;padding:8px 15px;border-radius:8px;font-size:14px;
+    font-weight:600;color:var(--muted);cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:7px}
+  .planfilter button.on{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+  .planfilter .cnt{background:rgba(0,0,0,.08);border-radius:20px;padding:1px 8px;font-size:11px;font-variant-numeric:tabular-nums}
+  .pname-box{padding:7px 14px;border-radius:12px;border:1px solid transparent;transition:background .18s,color .18s,border-color .18s}
+  .pname-box.winner{background:var(--ok-soft,#E8F3EC);color:var(--ok,#2E7D4F);border-color:#cfe4d7;font-weight:800}
+  .planfilter button.on .cnt{background:var(--ok-soft,#E8F3EC);color:var(--ok,#2E7D4F)}
   .ballicon.empty{visibility:hidden}
   .ballicon svg{animation:ballpulse 1.6s ease-in-out infinite}
   @keyframes ballpulse{0%,100%{transform:scale(1)}50%{transform:scale(1.18)}}
@@ -383,9 +391,9 @@
         <button class="btn btn-primary" id="addEventBtn">+ Neues Event</button>
       </div>
       <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:12px;font-size:12px;color:var(--muted);align-items:center">
-        <span><span class="badge" style="background:#E8F3EC;color:#2E7D4F;border-color:#cfe4d7;font-size:10px">ausgespielt</span> alle Spiele gespielt</span>
-        <span><span class="badge" style="background:#fdf1e0;color:#b45309;border-color:#f2d9b4;font-size:10px">läuft</span> Ergebnisse teilweise da</span>
-        <span><span class="badge" style="background:#EFF1ED;color:#5E6B64;border-color:#e0e4de;font-size:10px">aufgesetzt</span> Spielplan ohne Ergebnisse</span>
+        <span><span class="badge" style="background:#EFF1ED;color:#5E6B64;border-color:#e0e4de;font-size:10px">aufgesetzt</span> Spielplan steht</span>
+        <span><span class="badge" style="background:#fdf1e0;color:#b45309;border-color:#f2d9b4;font-size:10px">läuft</span> Ergebnisse werden eingetragen</span>
+        <span><span class="badge" style="background:#E8F3EC;color:#2E7D4F;border-color:#cfe4d7;font-size:10px">beendet</span> gespielt &amp; gewertet</span>
         <span><span class="badge" style="background:#f1ebfd;color:#6d28d9;border-color:#ddd0f7;font-size:10px">nur Platzierung</span> ohne Einzelspiele nachgetragen</span>
       </div>
       <div class="events-grid" id="eventsGrid"></div>
@@ -484,6 +492,11 @@
           </div>
         </div>
         <div id="courtBar" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px"></div>
+        <div class="planfilter" id="planFilter">
+          <button data-pf="active" class="on">Aktive Spiele <span class="cnt" id="pfActiveCnt">0</span></button>
+          <button data-pf="done">Beendet <span class="cnt" id="pfDoneCnt">0</span></button>
+          <button data-pf="all">Alle</button>
+        </div>
         <div id="groupsContainer"></div>
         <div id="planFinishBar" class="hidden" style="margin-top:18px;text-align:center">
           <div class="card" style="padding:20px;display:flex;flex-direction:column;align-items:center;gap:10px">
@@ -926,6 +939,14 @@ function eventCourts(){
   return act.length?act:COURTS.slice();
 }
 let SHOW_BYES = true;
+let PLAN_FILTER = "active";       // active | done | all
+// Gehört ein Spiel zum aktuell gewählten Reiter?
+function passFilter(m, bye){
+  if(PLAN_FILTER==="all") return true;
+  const isDone = m.status==="done" || m.display_status==="done";
+  if(PLAN_FILTER==="done") return isDone;
+  return !isDone && !bye;         // "active": alles Offene (Court, Vorbereitung, wartend)
+}
 let AUTO_COURTS = true;      // Courts automatisch vergeben
 let GUEST_FEE = 0;
 let TREASURER_EMAIL = "";
@@ -1204,14 +1225,14 @@ async function loadEvents(){
   EVENTS.forEach(e=>{ e._mTotal=tot[e.id]||0; e._mDone=done[e.id]||0; });
   renderEvents();
 }
-// Zustand eines Events für die Übersicht
+// Zustand eines Events: nur Platzierungen · aufgesetzt · läuft · beendet
 function eventPlayState(e){
   const finalized=!!e.finalized_at;
-  if(e._mTotal>0){
-    if(e._mDone>=e._mTotal) return {key:"played", label:"ausgespielt", color:"#2E7D4F", bg:"#E8F3EC", bd:"#cfe4d7",
-      title:`Turnier komplett gespielt (${e._mDone} Spiele)`};
-    if(e._mDone>0) return {key:"running", label:`läuft ${e._mDone}/${e._mTotal}`, color:"#b45309", bg:"#fdf1e0", bd:"#f2d9b4",
-      title:"Turnier läuft – Ergebnisse teilweise eingetragen"};
+  if(e._mTotal>0){                       // es gibt einen echten Spielplan
+    if(finalized) return {key:"done", label:"beendet", color:"#2E7D4F", bg:"#E8F3EC", bd:"#cfe4d7",
+      title:"Turnier gespielt und Endplatzierung gespeichert"};
+    if(e._mDone>0) return {key:"running", label:"läuft", color:"#b45309", bg:"#fdf1e0", bd:"#f2d9b4",
+      title:"Turnier läuft – Ergebnisse werden eingetragen"};
     return {key:"setup", label:"aufgesetzt", color:"#5E6B64", bg:"#EFF1ED", bd:"#e0e4de",
       title:"Spielplan erstellt, noch keine Ergebnisse"};
   }
@@ -1233,7 +1254,7 @@ function renderEvents(){
     const reg=e.max_participants?`${e._count} / ${e.max_participants}`:`${e._count}`;
     const ps=eventPlayState(e);
     const psTag = ps?`<span class="badge" title="${esc(ps.title)}" style="background:${ps.bg};color:${ps.color};border-color:${ps.bd};font-size:10px">${esc(ps.label)}</span>`:"";
-    const fin = e.finalized_at?`<span class="badge" title="Endplatzierung gespeichert – zählt für die Rangliste" style="font-size:10px">gewertet</span>`:"";
+    const fin = "";
     return `<div class="event-card" data-eo="${e.id}">
       <div class="ec-top"><div class="ec-name">${esc(e.name)}${e.live_at?' <span class="badge" style="background:#FBEAE9;color:#C4362F;border-color:#f3c9c6;font-size:10px">● LIVE</span>':""}</div>
         <span class="pill ${open?"open":"closed"}">${open?"offen":"zu"}</span></div>
@@ -1265,7 +1286,7 @@ function openEventModal(id){
     <label style="display:flex;align-items:center;gap:6px;border:1px solid var(--border);border-radius:8px;padding:7px 11px;cursor:pointer">
       <input type="checkbox" class="ecourt" value="${esc(c)}"${(!selC.length||selC.includes(c))?" checked":""}> Court ${esc(c)}
     </label>`).join("") || `<span class="hint">Erst in den Einstellungen Courts anlegen.</span>`;
-  $("#eWinSets").value=String(e?.win_sets||3);
+  $("#eWinSets").value=String(e?.win_sets||2);
   $("#eOpen").checked=e?e.is_registration_open:true;
   $("#deleteEventBtn").classList.toggle("hidden", !id || !isAdmin());
   $("#eventModal").classList.remove("hidden"); setTimeout(()=>$("#eName").focus(),40);
@@ -1282,7 +1303,7 @@ $("#saveEventBtn").addEventListener("click", async ()=>{
     notes:$("#eNotes").value.trim()||null, is_registration_open:$("#eOpen").checked,
     match_minutes:$("#eMatchMin").value?parseInt($("#eMatchMin").value):null,
     courts: Array.from(document.querySelectorAll(".ecourt:checked")).map(c=>c.value),
-    win_sets:parseInt($("#eWinSets").value)||3 };
+    win_sets:parseInt($("#eWinSets").value)||2 };
   const id=$("#eId").value;
   const res = id ? await sb.from("events").update(rec).eq("id",id).select().maybeSingle()
                  : await sb.from("events").insert(rec).select().maybeSingle();
@@ -1568,6 +1589,22 @@ async function toggleLive(){
   }
   loadEvents();
 }
+
+function renderPlanFilter(){
+  const box=$("#planFilter"); if(!box) return;
+  let act=0, dn=0;
+  MATCHES.forEach(m=>{
+    const isDone = m.status==="done" || m.display_status==="done";
+    if(isDone) dn++; else if(!m.is_bye) act++;
+  });
+  const a=$("#pfActiveCnt"), d=$("#pfDoneCnt");
+  if(a) a.textContent=act;
+  if(d) d.textContent=dn;
+  box.querySelectorAll("button").forEach(b=>b.classList.toggle("on", b.dataset.pf===PLAN_FILTER));
+}
+document.querySelectorAll("#planFilter button").forEach(b=>b.addEventListener("click",()=>{
+  PLAN_FILTER=b.dataset.pf; renderGroups(); window.scrollTo({top:0,behavior:"smooth"});
+}));
 
 function renderCourtBar(){
   const bar=$("#courtBar"); if(!bar||!currentEvent) return;
@@ -2636,7 +2673,7 @@ function renderGroups(){
   const hasT = GROUPS.length>0 || MATCHES.some(m=>m.phase==="placement");
   $("#groupsEmpty").classList.toggle("hidden", hasT);
   if($("#resetTournBtn")) $("#resetTournBtn").classList.toggle("hidden", !hasT || !isAdmin());
-  const need=currentEvent.win_sets||3;
+  const need=currentEvent.win_sets||2;
   let html = renderStandalone(need, true);
   html += GROUPS.map(g=> groupIsSourced(g.id) ? renderFinalBlock(g,need) : renderGroupBlock(g,need)).join("");
   html += renderStandalone(need, false);
@@ -2648,6 +2685,7 @@ function renderGroups(){
   $("#groupsContainer").querySelectorAll(".court").forEach(sel=>sel.addEventListener("change",()=>onCourtManual(sel)));
   $("#groupsContainer").querySelectorAll(".mstatus").forEach(sel=>sel.addEventListener("change",()=>setDisplayStatus(sel)));
   renderCourtBar();
+  renderPlanFilter();
 
   // Unten Endplatzierung anbieten, sobald das Turnier vollständig gespielt ist
   const bar=$("#planFinishBar");
@@ -2660,7 +2698,7 @@ function renderGroups(){
 
 function renderGroupBlock(g,need){
   const all=MATCHES.filter(m=>m.group_id===g.id && m.phase==="group").sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
-  const matches=all.filter(m=> !m.is_bye || SHOW_BYES);
+  const matches=all.filter(m=> (!m.is_bye || SHOW_BYES) && passFilter(m, !!m.is_bye));
   const rows=matches.map(m=>{
     const bye=!!m.is_bye;
     const hn = m.home_reg_id?regShortS(m.home_reg_id):"Freilos";
@@ -2717,6 +2755,7 @@ function renderFinalBlock(g,need){
     m.home_reg_id=H.reg||null; m.away_reg_id=A.reg||null;
     const bye = H.ready && A.ready && !(H.reg && A.reg);
     if(bye && !SHOW_BYES) return "";
+    if(!passFilter(m, bye)) return "";
     const nm=(S)=> S.reg?regShortS(S.reg):((S.isBye||S.empty)?"Freilos":(S.ready?"—":`<span style="color:var(--muted);font-weight:400">${esc(S.srcLabel)}</span>`));
     let cell;
     if(!H.ready || !A.ready){ cell=`<span style="color:var(--muted);font-size:13px">wartet</span>`; }
@@ -2756,6 +2795,7 @@ function renderStandalone(need, before){
     m.home_reg_id=H.reg||null; m.away_reg_id=A.reg||null;   // im Speicher auflösen (für Ergebnis-Eingabe)
     const bye = H.ready && A.ready && !(H.reg && A.reg);
     if(bye && !SHOW_BYES) return "";
+    if(!passFilter(m, bye)) return "";
     const nm=(S)=> S.reg?regShortS(S.reg):((S.isBye||S.empty)?"Freilos":(S.ready?"—":`<span style="color:var(--muted);font-weight:400">${esc(S.srcLabel)}</span>`));
     const homeName=nm(H), awayName=nm(A);
     let cell;
@@ -2786,7 +2826,7 @@ function matchSummary(m){
   const played=sets.filter(s=>s&&s.length===2&&s[0]!=null&&s[1]!=null);
   if(!played.length) return `<button class="btn btn-sm" data-res="${m.id}">Ergebnis</button>`;
   let hs=0,as=0; const parts=played.map(s=>{ if(s[0]>s[1])hs++; else if(s[1]>s[0])as++; return `${s[0]}:${s[1]}`; });
-  const need=(currentEvent&&currentEvent.win_sets)||3;
+  const need=(currentEvent&&currentEvent.win_sets)||2;
   const fertig = hs>=need || as>=need;
   if(!fertig){
     // Spiel läuft noch: Zwischenstand + weiterhin Eingabe-Button
@@ -2832,7 +2872,7 @@ function computeStandings(groupId){
   });
 
   // Kampflose Siege: hat ein Gegner aufgegeben und liegt kein Ergebnis vor -> Gegner gewinnt
-  const need=(currentEvent&&currentEvent.win_sets)||3;
+  const need=(currentEvent&&currentEvent.win_sets)||2;
   MATCHES.filter(m=>m.group_id===groupId && !m.is_bye).forEach(m=>{
     const hasResult=Array.isArray(m.sets)&&m.sets.some(s=>s&&s[0]!=null&&s[1]!=null);
     if(hasResult) return;
@@ -3169,7 +3209,7 @@ $("#refreshUsersBtn").addEventListener("click", renderUsers);
 $("#addGroupBtn").addEventListener("click", ()=>{
   if(seedList.length<3){ toast("Es müssen mindestens 3 Spieler gesetzt sein.",true); return; }
   fillModeSelect();
-  $("#grWinSets").value=String(currentEvent.win_sets||3);
+  $("#grWinSets").value=String(currentEvent.win_sets||2);
   $("#groupModal").classList.remove("hidden");
 });
 $("#grMode").addEventListener("change", syncModeUi);
@@ -3202,9 +3242,9 @@ $("#createGroupBtn").addEventListener("click", async ()=>{
       await sb.from("matches").delete().eq("event_id",currentEvent.id);
       await sb.from("groups").delete().eq("event_id",currentEvent.id);
     }
-    await sb.from("events").update({ mode:mode.id, win_sets:parseInt($("#grWinSets").value)||3 }).eq("id",currentEvent.id);
+    await sb.from("events").update({ mode:mode.id, win_sets:parseInt($("#grWinSets").value)||2 }).eq("id",currentEvent.id);
     currentEvent.mode=mode.id;
-    currentEvent.win_sets=parseInt($("#grWinSets").value)||3;
+    currentEvent.win_sets=parseInt($("#grWinSets").value)||2;
 
     if(plan.recipe){
       await buildRecipe(plan.recipe, parts);
@@ -3386,8 +3426,8 @@ let resultMid=null;
 function openResultModal(mid){
   const m=MATCHES.find(x=>x.id===mid); if(!m) return;
   resultMid=mid;
-  $("#resMatchup").innerHTML=`<span>${regFull(m.home_reg_id)}</span><span style="color:var(--muted)">gegen</span><span>${regFull(m.away_reg_id)}</span>`;
-  const maxSets=(currentEvent.win_sets||3)*2-1;
+  $("#resMatchup").innerHTML=`<span id="resHomeName" class="pname-box">${regFull(m.home_reg_id)}</span><span style="color:var(--muted)">gegen</span><span id="resAwayName" class="pname-box">${regFull(m.away_reg_id)}</span>`;
+  const maxSets=(currentEvent.win_sets||2)*2-1;
   const sets=Array.isArray(m.sets)?m.sets:[];
   let html="";
   for(let i=0;i<maxSets;i++){
@@ -3509,12 +3549,18 @@ function tallyOf(sets){
   return {hs,as,hb,ab};
 }
 function updateTally(){
-  const need=currentEvent.win_sets||3;
+  const need=currentEvent.win_sets||2;
   const t=tallyOf(readSets());
   const done=t.hs>=need||t.as>=need;
   $("#setTally").innerHTML=`Sätze <span class="mono">${t.hs} : ${t.as}</span>`+
     (done?`  <span style="color:var(--ok)">✓ Sieg</span>`:``)+
     `<div style="color:var(--muted);font-size:12px;font-weight:400;margin-top:2px">Punkte ${t.hb} : ${t.ab}</div>`;
+  // Sieger farblich hervorheben, sobald er feststeht
+  const hn=$("#resHomeName"), an=$("#resAwayName");
+  if(hn&&an){
+    hn.classList.toggle("winner", done && t.hs>t.as);
+    an.classList.toggle("winner", done && t.as>t.hs);
+  }
 }
 
 $("#saveResultBtn").addEventListener("click", async ()=>{
@@ -3523,7 +3569,7 @@ $("#saveResultBtn").addEventListener("click", async ()=>{
   const sets=readSets().filter(s=>!(s[0]==null&&s[1]==null));
   if(sets.some(s=> (s[0]==null)!==(s[1]==null))){ toast("Bei jedem Satz beide Werte eintragen.",true); return; }
   const t=tallyOf(sets);
-  const need=currentEvent.win_sets||3;
+  const need=currentEvent.win_sets||2;
   const done=t.hs>=need||t.as>=need;
   const patch={ sets: sets.length?sets:null, home_score:t.hs, away_score:t.as, status: done?"done":"pending" };
   if(done) patch.display_status="done";                  // beendet – erscheint nicht mehr auf dem Board
