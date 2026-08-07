@@ -20,31 +20,42 @@
   header h1{font-size:22px;margin:0;font-weight:800;letter-spacing:.3px}
   header .ev{color:var(--muted);font-size:15px}
   header .clock{font-variant-numeric:tabular-nums;color:var(--muted);font-size:15px}
-  .wrap{display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;padding:22px 28px}
-  @media (max-width:1250px){ .wrap{grid-template-columns:1fr 1fr} }
+  .wrap{display:grid;grid-template-columns:1fr 1fr;gap:22px;padding:22px 28px 8px}
   @media (max-width:900px){ .wrap{grid-template-columns:1fr} }
+  /* Zuletzt beendet — kompakte Zeilen unten */
+  .donebar{padding:6px 28px 18px}
+  .donebar h2{font-size:14px;text-transform:uppercase;letter-spacing:1.5px;margin:0 0 10px;display:flex;align-items:center;gap:10px;color:var(--muted)}
+  .dgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px 22px}
+  @media (max-width:900px){ .dgrid{grid-template-columns:1fr} }
+  .drow{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);
+    border-left:4px solid #64748b;border-radius:9px;padding:7px 12px;font-size:15px}
+  .drow .dct{flex:0 0 26px;text-align:center;font-size:12px;color:var(--muted);font-weight:700}
+  .drow .dnm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)}
+  .drow .dnm.r{text-align:right}
+  .drow .dnm.w{color:var(--ink);font-weight:700}
+  .drow .dsc{flex:0 0 auto;font-variant-numeric:tabular-nums;font-weight:800;font-size:16px}
   .col h2{font-size:16px;text-transform:uppercase;letter-spacing:1.5px;margin:0 0 12px;display:flex;align-items:center;gap:10px}
   .dot{width:12px;height:12px;border-radius:50%}
   .dot.court{background:var(--court)} .dot.prep{background:var(--prep)}
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:12px;display:flex;align-items:center;gap:16px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin-bottom:14px;display:flex;align-items:center;gap:18px}
   .card.court{border-left:6px solid var(--court)}
   .card.prep{border-left:6px solid var(--prep)}
-  .courtbadge{flex:0 0 auto;min-width:74px;height:74px;border-radius:12px;background:var(--panel2);
+  .courtbadge{flex:0 0 auto;min-width:88px;height:88px;border-radius:12px;background:var(--panel2);
     display:flex;flex-direction:column;align-items:center;justify-content:center}
   .courtbadge .lbl{font-size:10px;letter-spacing:1px;color:var(--muted);text-transform:uppercase}
-  .courtbadge .num{font-size:30px;font-weight:800;line-height:1}
+  .courtbadge .num{font-size:38px;font-weight:800;line-height:1}
   .players{flex:1;min-width:0}
-  .players .vs-row{display:flex;align-items:center;gap:12px;font-size:22px;font-weight:700}
+  .players .vs-row{display:flex;align-items:center;gap:12px;font-size:26px;font-weight:800}
   .players .vs-row .p{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .players .vs-row .p.away{text-align:right}
   .players .vs-row .vs{color:var(--muted);font-size:15px;font-weight:600}
   .players .meta{color:var(--muted);font-size:13px;margin-top:4px}
   .timebadge{flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-end;justify-content:center;min-width:78px;padding-left:12px;border-left:1px solid var(--line)}
   .timebadge .tlbl{font-size:11px;letter-spacing:1px;color:var(--muted);text-transform:uppercase}
-  .timebadge .tval{font-size:27px;font-weight:800;line-height:1.05;font-variant-numeric:tabular-nums}
+  .timebadge .tval{font-size:30px;font-weight:800;line-height:1.05;font-variant-numeric:tabular-nums}
   .scorebadge{flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-end;justify-content:center;min-width:96px;padding-left:12px;border-left:1px solid var(--line)}
   .scorebadge .tlbl{font-size:11px;letter-spacing:1px;color:var(--muted);text-transform:uppercase}
-  .scorebadge .sval{font-size:30px;font-weight:800;line-height:1.05;font-variant-numeric:tabular-nums}
+  .scorebadge .sval{font-size:34px;font-weight:800;line-height:1.05;font-variant-numeric:tabular-nums}
   .scorebadge .sets{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap;margin-top:2px}
   .scorebadge.live .sval{color:var(--court)}
   .dot.done{background:#64748b}
@@ -108,6 +119,19 @@ function scoreInfo(m){
   let hs=0,as=0;
   const parts=sets.map(s=>{ if(s[0]>s[1])hs++; else if(s[1]>s[0])as++; return s[0]+":"+s[1]; });
   return { hs, as, parts };
+}
+// Beendete Spiele kompakt als Zeile (spart Platz für die laufenden)
+function doneRow(m, regMap, playerMap){
+  const home = m.home_label || nameOf(m.home_reg_id, regMap, playerMap);
+  const away = m.away_label || nameOf(m.away_reg_id, regMap, playerMap);
+  const sc = scoreInfo(m);
+  const hw = sc && sc.hs>sc.as, aw = sc && sc.as>sc.hs;
+  return `<div class="drow">
+    <span class="dct">${m.court?esc(m.court):"–"}</span>
+    <span class="dnm${hw?" w":""}">${esc(home)}</span>
+    <span class="dsc">${sc?sc.hs+":"+sc.as:"–"}</span>
+    <span class="dnm r${aw?" w":""}">${esc(away)}</span>
+  </div>`;
 }
 function card(m, regMap, playerMap){
   const cls = m.display_status==="court" ? "court" : (m.display_status==="done" ? "done" : "prep");
@@ -187,11 +211,11 @@ async function load(){
         <h2><span class="dot prep"></span>In Vorbereitung</h2>
         ${prep.length ? prep.map(m=>card(m,regMap,playerMap)).join("") : `<div class="empty">Keine Spiele in Vorbereitung.</div>`}
       </div>
-      <div class="col">
-        <h2><span class="dot done"></span>Beendet</h2>
-        ${doneList.length ? doneList.map(m=>card(m,regMap,playerMap)).join("") : `<div class="empty">Noch keine Ergebnisse.</div>`}
-      </div>
-    </div>`;
+    </div>
+    ${doneList.length ? `<div class="donebar">
+      <h2><span class="dot done"></span>Zuletzt beendet</h2>
+      <div class="dgrid">${doneList.map(m=>doneRow(m,regMap,playerMap)).join("")}</div>
+    </div>` : ""}`;
   $("#foot").textContent = "Vereinsrangliste Maintal";
   // Branding-Fußzeile
   try{ const b=await sb.from("public_branding").select("value").maybeSingle();

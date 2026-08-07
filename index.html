@@ -238,6 +238,11 @@
   table.matches tr.inprep:hover{background:#f8eedd !important}
   /* Beendete Spiele leicht zurücknehmen */
   table.matches tr.isdone td{color:var(--muted)}
+  .ballicon{display:inline-flex;align-items:center;justify-content:center;width:15px;flex:0 0 15px}
+  .ballicon.empty{visibility:hidden}
+  .ballicon svg{animation:ballpulse 1.6s ease-in-out infinite}
+  @keyframes ballpulse{0%,100%{transform:scale(1)}50%{transform:scale(1.18)}}
+  @media (prefers-reduced-motion:reduce){ .ballicon svg{animation:none} }
   .seedtag{display:inline-block;min-width:18px;padding:0 5px;margin-right:6px;border-radius:9px;
     background:var(--ok-soft,#E8F3EC);color:var(--ok,#2E7D4F);font-family:var(--f-mono,monospace);
     font-size:11px;font-weight:700;text-align:center;line-height:17px;vertical-align:baseline}
@@ -2432,7 +2437,17 @@ function matchOutcome(m){
 function courtCell(m){
   const opts=['<option value="">–</option>'].concat(
     eventCourts().map(c=>`<option value="${esc(c)}"${m.court===c?" selected":""}>${esc(c)}</option>`)).join("");
-  return `<td><select class="mini court" data-mid="${m.id}" data-f="court">${opts}</select></td>`;
+  // Squashball-Symbol: zeigt an, dass auf diesem Court gerade gespielt wird
+  const live = m.display_status==="court"
+    ? `<span class="ballicon" title="Spiel läuft auf Court ${esc(m.court||"")}">
+         <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">
+           <circle cx="8" cy="8" r="7" fill="#1c1c1c"/>
+           <circle cx="5.6" cy="5.4" r="2" fill="#ffffff" opacity=".28"/>
+           <circle cx="11.4" cy="10.6" r="1.5" fill="#F2C230"/>
+         </svg></span>`
+    : `<span class="ballicon empty"></span>`;
+  return `<td><div style="display:flex;align-items:center;gap:6px">${live}
+    <select class="mini court" data-mid="${m.id}" data-f="court">${opts}</select></div></td>`;
 }
 function statusCell(m){
   const s=m.display_status||"";
