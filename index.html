@@ -246,6 +246,9 @@
   .planfilter .cnt{background:rgba(0,0,0,.08);border-radius:20px;padding:1px 8px;font-size:11px;font-variant-numeric:tabular-nums}
   .pname-box{padding:7px 14px;border-radius:12px;border:1px solid transparent;transition:background .18s,color .18s,border-color .18s}
   .pname-box.winner{background:var(--ok-soft,#E8F3EC);color:var(--ok,#2E7D4F);border-color:#cfe4d7;font-weight:800}
+  .runclock{font-family:var(--f-mono);font-weight:700;font-size:13px;color:var(--ok,#2E7D4F);
+    background:var(--ok-soft,#E8F3EC);border-radius:6px;padding:3px 8px;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .mini.dur{width:62px}
   .planfilter button.on .cnt{background:var(--ok-soft,#E8F3EC);color:var(--ok,#2E7D4F)}
   .ballicon.empty{visibility:hidden}
   .ballicon svg{animation:ballpulse 1.6s ease-in-out infinite}
@@ -2472,6 +2475,60 @@ function matchOutcome(m){
   if(!hr||!ar) return {decided:false, winner:null, loser:null};
   return {decided:false, winner:null, loser:null};
 }
+// ---------- Spieldauer ----------
+// Dauer in Minuten: manuelle Korrektur hat Vorrang, sonst gemessen
+function matchMinutes(m){
+  if(m.duration_min!=null) return Number(m.duration_min);
+  if(m.started_at && m.ended_at) return Math.max(0, Math.round((new Date(m.ended_at)-new Date(m.started_at))/60000));
+  return null;
+}
+function fmtDur(min){
+  if(min==null) return "";
+  const h=Math.floor(min/60), r=min%60;
+  return h?`${h}:${String(r).padStart(2,"0")} h`:`${min} min`;
+}
+// Laufende Dauer (mm:ss) für Spiele auf dem Court
+function runningDur(m){
+  if(!m.started_at) return "";
+  const s=Math.max(0, Math.floor((Date.now()-new Date(m.started_at))/1000));
+  return `${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;
+}
+function durCell(m){
+  const done = m.status==="done" || m.display_status==="done";
+  if(done){
+    const min=matchMinutes(m);
+    return `<td><input class="mini dur" type="number" min="0" data-mid="${m.id}" placeholder="–"
+      value="${min!=null?min:""}" title="Spieldauer in Minuten – änderbar"></td>`;
+  }
+  if(m.display_status==="court" && m.started_at)
+    return `<td><span class="runclock" data-start="${esc(m.started_at)}">${runningDur(m)}</span></td>`;
+  return `<td style="text-align:center;color:var(--muted)">–</td>`;
+}
+
+async function saveDuration(inp){
+  const m=MATCHES.find(x=>x.id===inp.dataset.mid); if(!m) return;
+  const v=inp.value.trim();
+  const min = v==="" ? null : Math.max(0, parseInt(v)||0);
+  m.duration_min=min;
+  const {error}=await sb.from("matches").update({duration_min:min}).eq("id",m.id);
+  if(error) toast(error.message,true); else toast(min==null?"Dauer zurückgesetzt.":"Dauer gespeichert: "+min+" min");
+}
+// Laufende Spieluhren jede Sekunde aktualisieren
+let clockTimer=null;
+function startClockTick(){
+  clearInterval(clockTimer);
+  const tick=()=>{
+    const els=document.querySelectorAll(".runclock");
+    if(!els.length){ clearInterval(clockTimer); clockTimer=null; return; }
+    els.forEach(el=>{
+      const s=Math.max(0, Math.floor((Date.now()-new Date(el.dataset.start))/1000));
+      el.textContent=`${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;
+    });
+  };
+  tick();
+  if(document.querySelector(".runclock")) clockTimer=setInterval(tick,1000);
+}
+
 function courtCell(m){
   const opts=['<option value="">–</option>'].concat(
     eventCourts().map(c=>`<option value="${esc(c)}"${m.court===c?" selected":""}>${esc(c)}</option>`)).join("");
@@ -2508,18 +2565,22 @@ function timeCell(m){
 }
 // Court/Status/Zeit — bei Freilos (kein echtes Spiel) nicht anklickbar
 function schedCells(m, interactive){
-  if(interactive) return courtCell(m)+statusCell(m)+timeCell(m);
+  if(interactive) return courtCell(m)+statusCell(m)+timeCell(m)+durCell(m);
   const dash=`<td style="text-align:center;color:var(--muted)">–</td>`;
-  return dash+dash+dash;
+  return dash+dash+dash+dash;
 }
 async function setDisplayStatus(sel){
   const m=MATCHES.find(x=>x.id===sel.dataset.mid); if(!m) return;
   const val=sel.value||null;
   const patch={ display_status: val };
   if(m.home_reg_id||m.away_reg_id){ patch.home_reg_id=m.home_reg_id||null; patch.away_reg_id=m.away_reg_id||null; }
+  // Uhr starten, sobald das Spiel auf den Court kommt
+  if(val==="court" && !m.started_at){ m.started_at=new Date().toISOString(); patch.started_at=m.started_at; }
+  // Uhr stoppen, wenn es als beendet markiert wird
+  if(val==="done" && m.started_at && !m.ended_at){ m.ended_at=new Date().toISOString(); patch.ended_at=m.ended_at; }
   m.display_status=val;
   const {error}=await sb.from("matches").update(patch).eq("id",m.id);
-  if(error) toast(error.message,true);
+  if(error) toast(error.message,true); else renderGroups();
 }
 
 // ---------- Automatischer Court-Planer ----------
@@ -2564,7 +2625,8 @@ async function assignCourts(){
     const court=freeCourts[assigned++]; usedIdx.add(i);
     const hl=sideDisplayText(m,"home"), al=sideDisplayText(m,"away");
     m.court=court; m.display_status="court"; m.home_reg_id=r.home; m.away_reg_id=r.away; m.home_label=hl; m.away_label=al;
-    updates.push(sb.from("matches").update({court, display_status:"court", home_reg_id:r.home, away_reg_id:r.away, home_label:hl, away_label:al}).eq("id",m.id));
+    const st = m.started_at || new Date().toISOString(); m.started_at=st;
+    updates.push(sb.from("matches").update({court, display_status:"court", home_reg_id:r.home, away_reg_id:r.away, home_label:hl, away_label:al, started_at:st}).eq("id",m.id));
   }
   const onCourtCount=occupied.size+assigned;
   // 2. Genauso viele Vorbereitungs-Spiele (nächste Kandidaten, auch der Folgerunde) beschriften
@@ -2632,7 +2694,8 @@ async function onCourtManual(sel){
       updates.push(sb.from("matches").update({court:null, display_status:"prep"}).eq("id",x.id));
     });
     m.court=court; m.display_status="court";
-    const patch={court, display_status:"court"};
+    if(!m.started_at) m.started_at=new Date().toISOString();
+    const patch={court, display_status:"court", started_at:m.started_at};
     if(m.home_reg_id||m.away_reg_id){ patch.home_reg_id=m.home_reg_id||null; patch.away_reg_id=m.away_reg_id||null; }
     updates.push(sb.from("matches").update(patch).eq("id",m.id));
   }else{
@@ -2685,6 +2748,8 @@ function renderGroups(){
   $("#groupsContainer").querySelectorAll(".time").forEach(inp=>inp.addEventListener("change",()=>autoSaveField(inp)));
   $("#groupsContainer").querySelectorAll(".court").forEach(sel=>sel.addEventListener("change",()=>onCourtManual(sel)));
   $("#groupsContainer").querySelectorAll(".mstatus").forEach(sel=>sel.addEventListener("change",()=>setDisplayStatus(sel)));
+  $("#groupsContainer").querySelectorAll(".dur").forEach(inp=>inp.addEventListener("change",()=>saveDuration(inp)));
+  startClockTick();
   renderCourtBar();
   renderPlanFilter();
 
@@ -2732,7 +2797,7 @@ function renderGroupBlock(g,need){
     </div>
     <div class="gb-section-title">Spielplan</div>
     <div style="overflow-x:auto"><table class="matches">
-      <thead><tr><th>Nr</th><th>Court</th><th>Status</th><th>Zeit</th><th style="text-align:right">Heim</th><th style="text-align:center">Ergebnis</th><th>Gast</th></tr></thead>
+      <thead><tr><th>Nr</th><th>Court</th><th>Status</th><th>Zeit</th><th>Dauer</th><th style="text-align:right">Heim</th><th style="text-align:center">Ergebnis</th><th>Gast</th></tr></thead>
       <tbody>${rows}</tbody>
     </table></div>
     <div class="gb-section-title">Tabelle</div>
@@ -2781,7 +2846,7 @@ function renderFinalBlock(g,need){
   return `<div class="group-block" data-gid="${g.id}">
     <div class="gb-head"><h3>${esc(g.name)}<span class="gb-sub">${g.size||members.length} Spieler · ${need} Gewinnsätze</span></h3></div>
     <div class="gb-section-title">Spielplan</div>
-    <div style="overflow-x:auto"><table class="matches"><thead><tr><th>Nr</th><th>Court</th><th>Status</th><th>Zeit</th><th style="text-align:right">Heim</th><th style="text-align:center">Ergebnis</th><th>Gast</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <div style="overflow-x:auto"><table class="matches"><thead><tr><th>Nr</th><th>Court</th><th>Status</th><th>Zeit</th><th>Dauer</th><th style="text-align:right">Heim</th><th style="text-align:center">Ergebnis</th><th>Gast</th></tr></thead><tbody>${rows}</tbody></table></div>
     <div class="gb-section-title">Tabelle</div>
     <div style="overflow-x:auto"><table class="standings"><thead><tr><th>Pl.</th><th>Spieler</th><th class="st">Sp</th><th class="st">S</th><th class="st">N</th><th class="st">Pkte</th><th class="st">Sätze</th><th class="st">Punkte</th></tr></thead><tbody>${srows}</tbody></table></div>
   </div>`;
@@ -2815,7 +2880,7 @@ function renderStandalone(need, before){
   return `<div class="group-block">
     <div class="gb-head"><h3>${before?"1. Runde":"Platzierungs- &amp; K.-o.-Spiele"}<span class="gb-sub">${need} Gewinnsätze</span></h3></div>
     <div style="overflow-x:auto"><table class="matches">
-      <thead><tr><th>Spiel</th><th>Court</th><th>Status</th><th>Zeit</th><th style="text-align:right">Heim</th><th style="text-align:center">Ergebnis</th><th>Gast</th></tr></thead>
+      <thead><tr><th>Spiel</th><th>Court</th><th>Status</th><th>Zeit</th><th>Dauer</th><th style="text-align:right">Heim</th><th style="text-align:center">Ergebnis</th><th>Gast</th></tr></thead>
       <tbody>${rows}</tbody>
     </table></div>
   </div>`;
@@ -3578,6 +3643,7 @@ $("#saveResultBtn").addEventListener("click", async ()=>{
   const done=t.hs>=need||t.as>=need;
   const patch={ sets: sets.length?sets:null, home_score:t.hs, away_score:t.as, status: done?"done":"pending" };
   if(done) patch.display_status="done";                  // beendet – erscheint nicht mehr auf dem Board
+  if(done && m && m.started_at && !m.ended_at) patch.ended_at=new Date().toISOString();
   if(m && (m.home_reg_id||m.away_reg_id)){ patch.home_reg_id=m.home_reg_id||null; patch.away_reg_id=m.away_reg_id||null; }
   const {error}=await sb.from("matches").update(patch).eq("id",resultMid);
   if(error){ toast(error.message,true); return; }

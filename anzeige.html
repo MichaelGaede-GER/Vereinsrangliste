@@ -50,6 +50,7 @@
   .players .vs-row .p.away{text-align:right}
   .players .vs-row .vs{color:var(--muted);font-size:15px;font-weight:600}
   .players .meta{color:var(--muted);font-size:13px;margin-top:4px}
+  .players .meta .dur{color:var(--court);font-weight:700}
   .timebadge{flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-end;justify-content:center;min-width:78px;padding-left:12px;border-left:1px solid var(--line)}
   .timebadge .tlbl{font-size:11px;letter-spacing:1px;color:var(--muted);text-transform:uppercase}
   .timebadge .tval{font-size:30px;font-weight:800;line-height:1.05;font-variant-numeric:tabular-nums}
@@ -113,6 +114,16 @@ function showLogin(msg){
   $("#pw").addEventListener("keydown", e=>{ if(e.key==="Enter") $("#loginBtn").click(); });
 }
 
+function durText(m){
+  if(m.display_status==="court" && m.started_at){
+    const s=Math.max(0,Math.floor((Date.now()-new Date(m.started_at))/60000));
+    return ` · <span class="dur">läuft ${s} min</span>`;
+  }
+  let min=null;
+  if(m.duration_min!=null) min=Number(m.duration_min);
+  else if(m.started_at&&m.ended_at) min=Math.max(0,Math.round((new Date(m.ended_at)-new Date(m.started_at))/60000));
+  return min!=null? ` · <span class="dur">${min} min</span>` : "";
+}
 function scoreInfo(m){
   const sets=Array.isArray(m.sets)?m.sets.filter(s=>s&&s[0]!=null&&s[1]!=null):[];
   if(!sets.length) return null;
@@ -153,7 +164,7 @@ function card(m, regMap, playerMap){
     <div class="courtbadge"><span class="lbl">Court</span><span class="num">${m.court?esc(m.court):"–"}</span></div>
     <div class="players">
       <div class="vs-row"><span class="p home">${esc(home)}</span><span class="vs">vs</span><span class="p away">${esc(away)}</span></div>
-      <div class="meta">${esc(m.label||"")}</div>
+      <div class="meta">${esc(m.label||"")}${durText(m)}</div>
     </div>
     ${right}
   </div>`;
@@ -186,7 +197,7 @@ async function load(){
     sb.from("events").select("name,courts").eq("id",evId).maybeSingle(),
     sb.from("registrations").select("id,player_id,guest_first_name,guest_last_name").eq("event_id",evId),
     sb.from("players").select("id,first_name,last_name"),
-    sb.from("matches").select("id,label,court,display_status,home_reg_id,away_reg_id,home_label,away_label,scheduled_time,sort_order,sets,home_score,away_score,status")
+    sb.from("matches").select("id,label,court,display_status,home_reg_id,away_reg_id,home_label,away_label,scheduled_time,sort_order,sets,home_score,away_score,status,started_at,ended_at,duration_min")
       .eq("event_id",evId).not("display_status","is",null)
   ]);
 
