@@ -61,6 +61,19 @@
   .foot{color:var(--muted);font-size:12px;text-align:center;padding:10px 18px 30px}
   .legend{max-width:1500px;margin:0 auto;padding:0 18px;display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
   .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:middle}
+  /* Diaschau */
+  .pagerbar{max-width:1500px;margin:0 auto;padding:10px 18px 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .pagerbar button{border:1px solid var(--border);background:var(--surface);color:var(--muted);
+    border-radius:8px;padding:6px 13px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
+  .pagerbar button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .pagerbar .prog{flex:1;min-width:80px;height:4px;background:var(--border);border-radius:3px;overflow:hidden}
+  .pagerbar .prog i{display:block;height:100%;width:0;background:var(--accent);border-radius:3px}
+  /* Seitenmodus: eine Runde füllt den Bildschirm */
+  body.paged .rounds{display:block}
+  body.paged .round{width:100%;flex:none}
+  body.paged .round .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+  body.paged .round h2{font-size:15px;letter-spacing:.05em;color:var(--ink);margin-bottom:12px}
+  body.paged .groups{grid-template-columns:repeat(auto-fill,minmax(340px,1fr))}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
@@ -68,8 +81,13 @@
 <body>
 <div class="top">
   <div><h1>Turnierbaum</h1><div class="sub" id="evSub"></div></div>
-  <select id="evSel"></select>
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+    <label style="display:flex;align-items:center;gap:7px;font-size:14px;color:var(--muted);cursor:pointer">
+      <input type="checkbox" id="autoPlay" checked> Automatisch durchblättern</label>
+    <select id="evSel"></select>
+  </div>
 </div>
+<div class="pagerbar" id="pagerBar"></div>
 <div class="legend">
   <span><i style="background:#C4362F"></i>läuft gerade</span>
   <span><i style="background:#E0A33E"></i>in Vorbereitung</span>
@@ -199,36 +217,85 @@ function groupCard(g){
   </div>`;
 }
 
-function render(){
-  const box=$("#content");
+// Eine Runde/Gruppe gilt als "aktiv", wenn dort schon etwas feststeht:
+// mindestens eine Paarung mit zwei Spielern, ein laufendes Spiel oder ein Ergebnis.
+function roundActive(ms){
+  return ms.some(m=>{
+    if(m.status==="done" && m.home_score!=null) return true;
+    if(m.display_status==="court" || m.display_status==="prep") return true;
+    const H=sideOf(m,"home"), A=sideOf(m,"away");
+    return !!(H.reg && A.reg);
+  });
+}
+
+let PAGES=[], PAGE=0, TIMER=null, TICK=null;
+const PAGE_MS=6000;
+
+function buildPages(){
+  PAGES=[];
   const groups=GROUPS.slice().sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
-  // Gruppen mit direkten Mitgliedern (Vorrunde)
   const directGroups=groups.filter(g=> GPLAYERS.some(gp=>gp.group_id===g.id && gp.registration_id));
-  const stand=MATCHES.filter(m=>m.phase!=="group").sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
-  let html="";
-  if(directGroups.length){
-    html += `<div class="groups">${directGroups.map(groupCard).join("")}</div>`;
-  }
-  if(stand.length){
-    // Spiele in Runden gruppieren: sort_order 101.. = Runde 1, 201.. = Runde 2 usw.
-    const rounds={};
-    stand.forEach(m=>{
-      const so=m.sort_order||0;
-      const r = so>=100 ? Math.floor(so/100) : (m.round||1);
-      (rounds[r]=rounds[r]||[]).push(m);
-    });
-    const keys=Object.keys(rounds).map(Number).sort((a,b)=>a-b);
-    html += `<div class="rounds">${keys.map(r=>{
-      const ms=rounds[r];
-      const nm = ms.length===1 ? "Finale" : (r+". Runde");
-      return `<div class="round"><h2>${esc(nm)} · ${ms.length} Spiel${ms.length>1?"e":""}</h2>
-        ${ms.map(matchCard).join("")}</div>`;
-    }).join("")}</div>`;
-  }
-  // Sourced-Gruppen (z. B. Trostrunde) unten
   const srcGroups=groups.filter(g=> !directGroups.includes(g));
-  if(srcGroups.length) html += `<div class="groups" style="margin-top:22px">${srcGroups.map(groupCard).join("")}</div>`;
-  box.innerHTML = html || `<div class="empty">Für dieses Turnier ist noch kein Spielplan angelegt.</div>`;
+
+  // Seite 1..n: Vorrundengruppen (jeweils bis zu 6 pro Seite)
+  for(let i=0;i<directGroups.length;i+=6){
+    const chunk=directGroups.slice(i,i+6);
+    PAGES.push({ title: directGroups.length>6 ? `Gruppen (${i+1}–${Math.min(i+6,directGroups.length)})` : "Gruppen",
+                 html: `<div class="groups">${chunk.map(groupCard).join("")}</div>` });
+  }
+  // Danach: je Runde eine Seite (nur wenn dort schon etwas läuft)
+  const stand=MATCHES.filter(m=>m.phase!=="group").sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
+  const rounds={};
+  stand.forEach(m=>{ const so=m.sort_order||0; const r= so>=100 ? Math.floor(so/100) : (m.round||1);
+    (rounds[r]=rounds[r]||[]).push(m); });
+  Object.keys(rounds).map(Number).sort((a,b)=>a-b).forEach(r=>{
+    const ms=rounds[r].filter(m=>!m.is_bye);
+    if(!ms.length || !roundActive(ms)) return;         // leere/noch offene Runden überspringen
+    const nm = ms.length===1 ? "Finale" : `${r}. Runde`;
+    PAGES.push({ title:`${nm} · ${ms.length} Spiel${ms.length>1?"e":""}`,
+      html:`<div class="rounds"><div class="round"><h2>${esc(nm)} · ${ms.length} Spiel${ms.length>1?"e":""}</h2>
+        <div class="cards">${ms.map(matchCard).join("")}</div></div></div>` });
+  });
+  // Trostrunden/abgeleitete Gruppen zum Schluss
+  if(srcGroups.length) PAGES.push({ title:"Weitere Gruppen",
+    html:`<div class="groups">${srcGroups.map(groupCard).join("")}</div>` });
+
+  if(!PAGES.length) PAGES=[{title:"Spielplan", html:`<div class="empty">Für dieses Turnier ist noch kein Spielplan angelegt.</div>`}];
+  if(PAGE>=PAGES.length) PAGE=0;
+}
+
+function showPage(i){
+  PAGE=(i+PAGES.length)%PAGES.length;
+  $("#content").innerHTML=PAGES[PAGE].html;
+  document.querySelectorAll("#pagerBar [data-pg]").forEach(b=>b.classList.toggle("on", +b.dataset.pg===PAGE));
+  restartTimer();
+}
+function renderPager(){
+  const bar=$("#pagerBar"); if(!bar) return;
+  bar.innerHTML = PAGES.map((p,i)=>`<button data-pg="${i}"${i===PAGE?' class="on"':""}>${esc(p.title.split(" · ")[0])}</button>`).join("")
+    + `<span class="prog"><i id="progBar"></i></span>`;
+  bar.querySelectorAll("[data-pg]").forEach(b=>b.addEventListener("click",()=>{ showPage(+b.dataset.pg); }));
+}
+function restartTimer(){
+  clearInterval(TIMER); clearInterval(TICK);
+  const bar=document.getElementById("progBar");
+  if(bar) bar.style.width="0%";
+  if(!$("#autoPlay").checked || PAGES.length<2) return;
+  let t0=Date.now();
+  TICK=setInterval(()=>{ const p=Math.min(100,(Date.now()-t0)/PAGE_MS*100);
+    const b=document.getElementById("progBar"); if(b) b.style.width=p+"%"; },120);
+  TIMER=setInterval(()=>{ t0=Date.now(); showPage(PAGE+1); }, PAGE_MS);
+}
+function render(){
+  const keepTitle = PAGES[PAGE] ? PAGES[PAGE].title : null;
+  buildPages();
+  // nach Datenaktualisierung möglichst auf derselben Seite bleiben
+  if(keepTitle){ const idx=PAGES.findIndex(p=>p.title===keepTitle); if(idx>=0) PAGE=idx; }
+  document.body.classList.add("paged");
+  renderPager();
+  $("#content").innerHTML=PAGES[PAGE].html;
+  document.querySelectorAll("#pagerBar [data-pg]").forEach(b=>b.classList.toggle("on", +b.dataset.pg===PAGE));
+  restartTimer();
 }
 
 async function loadEvent(id){
@@ -266,6 +333,13 @@ async function init(){
   $("#evSel").value = list.some(e=>e.id===start)?start:list[0].id;
   $("#evSel").addEventListener("change",()=>{ history.replaceState(null,"","#"+$("#evSel").value); loadEvent($("#evSel").value); });
   await loadEvent($("#evSel").value);
+  // Automatik an/aus
+  $("#autoPlay").addEventListener("change", restartTimer);
+  // Blättern per Pfeiltasten
+  document.addEventListener("keydown", e=>{
+    if(e.key==="ArrowRight"){ showPage(PAGE+1); }
+    else if(e.key==="ArrowLeft"){ showPage(PAGE-1); }
+  });
   // sanfte Aktualisierung (kein Seiten-Neuladen)
   setInterval(()=>{ if(!document.hidden) loadEvent($("#evSel").value).catch(()=>{}); }, 15000);
 }
