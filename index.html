@@ -654,6 +654,24 @@
           <button class="btn btn-primary" id="saveBrandingBtn">Speichern</button>
         </div>
       </div>
+
+      <div class="panel">
+        <h3>Datensicherung</h3>
+        <p class="hint">Sichert alle Turniere, Spieler, Anmeldungen, Spielpläne, Ergebnisse und Einstellungen in einer Datei. Beim Einspielen wird der gesicherte Stand vollständig wiederhergestellt.</p>
+        <div class="row" style="align-items:flex-end">
+          <button class="btn btn-primary" id="backupBtn">Backup herunterladen</button>
+          <span id="backupInfo" style="color:var(--muted);font-size:13px"></span>
+        </div>
+        <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
+          <label class="lbl">Backup einspielen</label>
+          <p class="hint" style="margin-top:0;color:var(--danger)">Achtung: Dabei werden alle aktuellen Turnier- und Spielerdaten durch den Inhalt der Datei ersetzt.</p>
+          <div class="row" style="align-items:flex-end">
+            <div class="grow"><input type="file" id="restoreFile" accept="application/json,.json" class="field"></div>
+            <button class="btn btn-danger" id="restoreBtn">Einspielen</button>
+          </div>
+          <div id="restoreLog" style="margin-top:10px;font-size:13px;color:var(--muted);white-space:pre-line"></div>
+        </div>
+      </div>
       <div class="panel">
         <h3>Ranglisten-Punkte</h3>
         <p class="hint">Punkte je Platzierung im Turnier, der Wert für die Plätze 33–128 sowie die Multiplikatoren nach Teilnehmerzahl. Änderungen gelten für <strong>künftige</strong> Endplatzierungen; bereits gespeicherte Turniere behalten ihre Punkte (bei Bedarf einfach die Endplatzierung erneut speichern).</p>
@@ -1020,6 +1038,92 @@ async function enterApp(session){
   await loadStatuses(); await loadPlayers(); await loadEvents(); await loadSettings();
   applyRoleUi();
 }
+// ---------- Datensicherung ----------
+// Reihenfolge = Abhängigkeiten (erst Übergeordnetes, dann Abhängiges)
+const BACKUP_TABLES = ["membership_status","players","app_settings","events",
+                       "registrations","groups","matches","group_players","event_results"];
+const SELF_REFS = ["home_src_match","away_src_match"];   // Spiele verweisen auf Spiele
+
+async function fetchAll(table){
+  const out=[]; const size=1000;
+  for(let from=0;;from+=size){
+    const {data,error}=await sb.from(table).select("*").range(from,from+size-1);
+    if(error) throw new Error(table+": "+error.message);
+    out.push(...(data||[]));
+    if(!data || data.length<size) break;
+  }
+  return out;
+}
+async function makeBackup(){
+  const btn=$("#backupBtn"); btn.disabled=true; $("#backupInfo").textContent="Sichere Daten…";
+  try{
+    const dump={ format:"vereinsrangliste-backup", version:1,
+                 created_at:new Date().toISOString(), tables:{} };
+    let total=0;
+    for(const t of BACKUP_TABLES){
+      dump.tables[t]=await fetchAll(t);
+      total+=dump.tables[t].length;
+      $("#backupInfo").textContent=`${t}: ${dump.tables[t].length} Einträge…`;
+    }
+    const stamp=new Date().toISOString().slice(0,16).replace(/[:T]/g,"-");
+    const blob=new Blob([JSON.stringify(dump)],{type:"application/json"});
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);
+    a.download=`vereinsrangliste-backup-${stamp}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+    const ev=(dump.tables.events||[]).length, pl=(dump.tables.players||[]).length;
+    $("#backupInfo").textContent=`Gesichert: ${ev} Turniere · ${pl} Spieler · ${total} Datensätze`;
+    toast("Backup erstellt.");
+  }catch(e){ $("#backupInfo").textContent=""; toast("Backup fehlgeschlagen: "+e.message,true); }
+  btn.disabled=false;
+}
+async function insertChunks(table, rows, log){
+  for(let i=0;i<rows.length;i+=300){
+    const {error}=await sb.from(table).insert(rows.slice(i,i+300));
+    if(error) throw new Error(table+": "+error.message);
+    if(log) log(`${table}: ${Math.min(i+300,rows.length)}/${rows.length}`);
+  }
+}
+async function restoreBackup(dump, log){
+  if(!dump || dump.format!=="vereinsrangliste-backup" || !dump.tables)
+    throw new Error("Das ist keine gültige Backup-Datei.");
+  // 1. Bestehende Daten entfernen (umgekehrte Abhängigkeit)
+  const delOrder=["event_results","group_players","matches","groups","registrations","events","players","membership_status"];
+  for(const t of delOrder){
+    log("Lösche "+t+" …");
+    const {error}=await sb.from(t).delete().not("id","is",null);
+    if(error) throw new Error("Löschen "+t+": "+error.message);
+  }
+  // 2. Einspielen in Abhängigkeitsreihenfolge
+  for(const t of BACKUP_TABLES){
+    const rows=dump.tables[t]||[];
+    if(!rows.length) continue;
+    if(t==="app_settings"){
+      for(let i=0;i<rows.length;i+=200){
+        const {error}=await sb.from("app_settings").upsert(rows.slice(i,i+200));
+        if(error) throw new Error("app_settings: "+error.message);
+      }
+      log("app_settings: "+rows.length); continue;
+    }
+    if(t==="matches"){                      // Selbstbezüge erst danach setzen
+      const plain=rows.map(r=>{ const c={...r}; SELF_REFS.forEach(f=>c[f]=null); return c; });
+      await insertChunks("matches", plain, log);
+      const refs=rows.filter(r=>SELF_REFS.some(f=>r[f]));
+      for(let i=0;i<refs.length;i++){
+        const r=refs[i]; const patch={};
+        SELF_REFS.forEach(f=>{ if(r[f]) patch[f]=r[f]; });
+        const {error}=await sb.from("matches").update(patch).eq("id",r.id);
+        if(error) throw new Error("matches (Verweise): "+error.message);
+        if(i%50===0) log(`matches Verweise: ${i}/${refs.length}`);
+      }
+      continue;
+    }
+    await insertChunks(t, rows, log);
+  }
+  log("Fertig.");
+}
+
 // ---------- Rollen ----------
 let MY_ROLE="director", MY_UID=null;
 const ROLE_LABEL={admin:"Administrator", director:"Turnierleiter", treasurer:"Kassenwart"};
@@ -1690,6 +1794,28 @@ $("#newCourtName").addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preve
 $("#saveCourtsBtn").addEventListener("click", saveCourts);
 $("#saveRankingSiteBtn").addEventListener("click", saveRankingSite);
 $("#saveBrandingBtn").addEventListener("click", saveBranding);
+$("#backupBtn").addEventListener("click", makeBackup);
+$("#restoreBtn").addEventListener("click", async ()=>{
+  const f=$("#restoreFile").files[0];
+  if(!f){ toast("Bitte zuerst eine Backup-Datei wählen.",true); return; }
+  const log=(t)=>{ $("#restoreLog").textContent=t; };
+  let dump;
+  try{ dump=JSON.parse(await f.text()); }
+  catch(e){ toast("Datei konnte nicht gelesen werden.",true); return; }
+  const ev=(dump.tables&&dump.tables.events||[]).length;
+  const pl=(dump.tables&&dump.tables.players||[]).length;
+  const when=dump.created_at?new Date(dump.created_at).toLocaleString("de-DE"):"unbekannt";
+  if(!confirm(`Backup vom ${when} einspielen?\n\nEnthält ${ev} Turniere und ${pl} Spieler.\n\nALLE aktuellen Turnier- und Spielerdaten werden dabei ersetzt.`)) return;
+  if(prompt('Zum Bestätigen bitte EINSPIELEN eintippen:')!=="EINSPIELEN"){ toast("Abgebrochen."); return; }
+  const btn=$("#restoreBtn"); btn.disabled=true;
+  try{
+    await restoreBackup(dump, log);
+    toast("Backup eingespielt.");
+    await loadStatuses(); await loadPlayers(); await loadEvents(); await loadSettings();
+    log("Fertig – Daten neu geladen.");
+  }catch(e){ log("Fehler: "+e.message); toast("Einspielen fehlgeschlagen: "+e.message,true); }
+  btn.disabled=false;
+});
 $("#savePointsBtn").addEventListener("click", savePointsCfg);
 $("#ptAddTier").addEventListener("click", ()=>{ MULT_TIERS.push({max:9999,f:1.85}); renderTiers(); });
 $("#resetPointsBtn").addEventListener("click", async ()=>{
