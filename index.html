@@ -662,6 +662,10 @@
           <button class="btn btn-primary" id="backupBtn">Backup herunterladen</button>
           <span id="backupInfo" style="color:var(--muted);font-size:13px"></span>
         </div>
+        <label style="display:flex;align-items:center;gap:7px;font-size:13px;color:var(--muted);margin-top:10px;cursor:pointer">
+          <input type="checkbox" id="askFolder" checked> Speicherort jedes Mal auswählen
+          <span id="folderHint" style="font-size:12px"></span>
+        </label>
         <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
           <label class="lbl">Backup einspielen</label>
           <p class="hint" style="margin-top:0;color:var(--danger)">Achtung: Dabei werden alle aktuellen Turnier- und Spielerdaten durch den Inhalt der Datei ersetzt.</p>
@@ -1066,14 +1070,31 @@ async function makeBackup(){
       $("#backupInfo").textContent=`${t}: ${dump.tables[t].length} Einträge…`;
     }
     const stamp=new Date().toISOString().slice(0,16).replace(/[:T]/g,"-");
-    const blob=new Blob([JSON.stringify(dump)],{type:"application/json"});
-    const a=document.createElement("a");
-    a.href=URL.createObjectURL(blob);
-    a.download=`vereinsrangliste-backup-${stamp}.json`;
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+    const name=`vereinsrangliste-backup-${stamp}.json`;
+    const text=JSON.stringify(dump);
     const ev=(dump.tables.events||[]).length, pl=(dump.tables.players||[]).length;
-    $("#backupInfo").textContent=`Gesichert: ${ev} Turniere · ${pl} Spieler · ${total} Datensätze`;
+    let saved=false;
+    // Speichern-Dialog mit Ordnerauswahl (Chrome/Edge). Der Browser merkt sich
+    // den zuletzt gewählten Ordner und schlägt ihn beim nächsten Mal wieder vor.
+    if(window.showSaveFilePicker && $("#askFolder").checked){
+      try{
+        const handle=await window.showSaveFilePicker({
+          suggestedName:name, id:"vr-backup", startIn:"documents",
+          types:[{description:"Backup (JSON)", accept:{"application/json":[".json"]}}]
+        });
+        const w=await handle.createWritable(); await w.write(text); await w.close();
+        saved=true;
+        $("#backupInfo").textContent=`Gespeichert unter „${handle.name}" · ${ev} Turniere · ${pl} Spieler · ${total} Datensätze`;
+      }catch(err){ if(err && err.name==="AbortError"){ $("#backupInfo").textContent="Abgebrochen."; btn.disabled=false; return; } }
+    }
+    if(!saved){                                  // Rückfall: normaler Download
+      const blob=new Blob([text],{type:"application/json"});
+      const a=document.createElement("a");
+      a.href=URL.createObjectURL(blob); a.download=name;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+      $("#backupInfo").textContent=`Gesichert: ${ev} Turniere · ${pl} Spieler · ${total} Datensätze`;
+    }
     toast("Backup erstellt.");
   }catch(e){ $("#backupInfo").textContent=""; toast("Backup fehlgeschlagen: "+e.message,true); }
   btn.disabled=false;
@@ -1795,6 +1816,16 @@ $("#saveCourtsBtn").addEventListener("click", saveCourts);
 $("#saveRankingSiteBtn").addEventListener("click", saveRankingSite);
 $("#saveBrandingBtn").addEventListener("click", saveBranding);
 $("#backupBtn").addEventListener("click", makeBackup);
+(function(){
+  const h=$("#folderHint"), c=$("#askFolder");
+  if(!h||!c) return;
+  if(!window.showSaveFilePicker){
+    c.checked=false; c.disabled=true;
+    h.textContent="— dieser Browser speichert immer in den Standard-Download-Ordner";
+  }else{
+    h.textContent="— der Ordner wird für das nächste Mal gemerkt";
+  }
+})();
 $("#restoreBtn").addEventListener("click", async ()=>{
   const f=$("#restoreFile").files[0];
   if(!f){ toast("Bitte zuerst eine Backup-Datei wählen.",true); return; }
