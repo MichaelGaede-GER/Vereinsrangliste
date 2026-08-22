@@ -736,7 +736,8 @@
   <div class="modal" style="max-width:400px">
     <div class="modal-head"><h3>Ergebnis eintragen</h3><button class="x-close" data-close-result>×</button></div>
     <div class="modal-body">
-      <div id="resMatchup" style="display:flex;justify-content:space-between;align-items:center;gap:10px;font-weight:600;margin-bottom:18px"></div>
+      <div id="resMatchup" style="display:flex;justify-content:space-between;align-items:center;gap:10px;font-weight:600;margin-bottom:6px"></div>
+      <div id="resRule" style="text-align:center;font-size:12px;color:var(--muted);margin-bottom:14px"></div>
       <div id="setRows"></div>
       <div id="padWrap" class="hidden" style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
@@ -2240,10 +2241,11 @@ const MODES=[
       return { recipe:{
         matches:[
           // Qualifikation (Sieger -> Hauptfeld, Verlierer -> Trostrunde)
-          {key:"mQ1", label:"Q1 · Qualifikation", sort:1, home:{seed:12}, away:{seed:19}},
-          {key:"mQ2", label:"Q2 · Qualifikation", sort:2, home:{seed:13}, away:{seed:18}},
-          {key:"mQ3", label:"Q3 · Qualifikation", sort:3, home:{seed:14}, away:{seed:17}},
-          {key:"mQ4", label:"Q4 · Qualifikation", sort:4, home:{seed:15}, away:{seed:16}},
+          // Quali: 1 Gewinnsatz bis 15 Punkte (bei 14:14 mit 2 Punkten Vorsprung)
+          {key:"mQ1", label:"Q1 · Qualifikation", sort:1, win_sets:1, target_points:15, home:{seed:12}, away:{seed:19}},
+          {key:"mQ2", label:"Q2 · Qualifikation", sort:2, win_sets:1, target_points:15, home:{seed:13}, away:{seed:18}},
+          {key:"mQ3", label:"Q3 · Qualifikation", sort:3, win_sets:1, target_points:15, home:{seed:14}, away:{seed:17}},
+          {key:"mQ4", label:"Q4 · Qualifikation", sort:4, win_sets:1, target_points:15, home:{seed:15}, away:{seed:16}},
           // 1. Runde (16er-Raster, Freilos für Setz. 1, Q1–Q4 in den Plätzen 12–15)
           {key:"m101", label:"101 · 1. Runde", sort:10, home:{seed:1},  away:{bye:true}},
           {key:"m102", label:"102 · 1. Runde", sort:11, home:{seed:9},  away:{seed:8}},
@@ -2283,7 +2285,16 @@ const MODES=[
         ],
         groups:[
           {key:"gTrost", name:"Trostrunde (Platz 16–19)", sort:0,
-            sources:[{m:"mQ1",t:"loser"},{m:"mQ2",t:"loser"},{m:"mQ3",t:"loser"},{m:"mQ4",t:"loser"}]},
+            sources:[{m:"mQ1",t:"loser"},{m:"mQ2",t:"loser"},{m:"mQ3",t:"loser"},{m:"mQ4",t:"loser"}],
+            // Spiele in den Ablauf der übrigen Runden einsortieren
+            plan:{
+              5:{no:109, label:"109 · Trostrunde", sort:18},
+              6:{no:110, label:"110 · Trostrunde", sort:19},
+              3:{no:209, label:"209 · Trostrunde", sort:108},
+              4:{no:210, label:"210 · Trostrunde", sort:109},
+              1:{no:309, label:"309 · Trostrunde", sort:118},
+              2:{no:310, label:"310 · Trostrunde", sort:119}
+            }},
         ]
       }};
     } },
@@ -2738,9 +2749,13 @@ function renderGroups(){
   $("#groupsEmpty").classList.toggle("hidden", hasT);
   if($("#resetTournBtn")) $("#resetTournBtn").classList.toggle("hidden", !hasT || !isAdmin());
   const need=currentEvent.win_sets||2;
+  // Gruppen, deren Spiele im Hauptspielplan mitlaufen, kommen ganz unten (nur Tabelle)
+  const inlineG = GROUPS.filter(g=> MATCHES.some(m=>m.group_id===g.id && m.label));
+  const normalG = GROUPS.filter(g=> !inlineG.includes(g));
   let html = renderStandalone(need, true);
-  html += GROUPS.map(g=> groupIsSourced(g.id) ? renderFinalBlock(g,need) : renderGroupBlock(g,need)).join("");
+  html += normalG.map(g=> groupIsSourced(g.id) ? renderFinalBlock(g,need) : renderGroupBlock(g,need)).join("");
   html += renderStandalone(need, false);
+  html += inlineG.map(g=> renderGroupBlock(g,need)).join("");
   $("#groupsContainer").innerHTML = html;
 
   $("#groupsContainer").querySelectorAll("[data-delgroup]").forEach(b=>b.addEventListener("click",()=>deleteGroup(b.dataset.delgroup)));
@@ -2764,7 +2779,9 @@ function renderGroups(){
 
 function renderGroupBlock(g,need){
   const all=MATCHES.filter(m=>m.group_id===g.id && m.phase==="group").sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
-  const matches=all.filter(m=> (!m.is_bye || SHOW_BYES) && passFilter(m, !!m.is_bye));
+  // Spiele mit eigener Beschriftung stehen bereits im Hauptspielplan
+  const inlineMode = all.some(m=>m.label);
+  const matches = inlineMode ? [] : all.filter(m=> (!m.is_bye || SHOW_BYES) && passFilter(m, !!m.is_bye));
   const rows=matches.map(m=>{
     const bye=!!m.is_bye;
     const hn = m.home_reg_id?regShortS(m.home_reg_id):"Freilos";
@@ -2795,11 +2812,12 @@ function renderGroupBlock(g,need){
       <h3>${esc(g.name)}<span class="gb-sub">${all.filter(m=>!m.is_bye).length} Spiele · ${need} Gewinnsätze${byes?` · ${byes}× Freilos`:""}</span></h3>
       <button class="btn btn-danger btn-sm" data-delgroup="${g.id}">Gruppe löschen</button>
     </div>
+    ${inlineMode ? `<div style="padding:8px 18px 0;color:var(--muted);font-size:12px">Die Spiele dieser Gruppe stehen oben im Spielplan (Nr. ${all.filter(m=>!m.is_bye).map(m=>m.match_no).sort((a,b)=>a-b).join(", ")}).</div>` : `
     <div class="gb-section-title">Spielplan</div>
     <div style="overflow-x:auto"><table class="matches">
       <thead><tr><th>Nr</th><th>Court</th><th>Status</th><th>Zeit</th><th>Dauer</th><th style="text-align:right">Heim</th><th style="text-align:center">Ergebnis</th><th>Gast</th></tr></thead>
       <tbody>${rows}</tbody>
-    </table></div>
+    </table></div>`}
     <div class="gb-section-title">Tabelle</div>
     <div style="overflow-x:auto"><table class="standings">
       <thead><tr><th>Pl.</th><th>Spieler</th><th class="st">Sp</th><th class="st">S</th><th class="st">N</th><th class="st">Pkte</th><th class="st">Sätze</th><th class="st">Punkte</th></tr></thead>
@@ -2853,7 +2871,9 @@ function renderFinalBlock(g,need){
 }
 
 function renderStandalone(need, before){
-  const pm=MATCHES.filter(m=>m.phase==="placement" && (before ? (m.sort_order||0)<100 : (m.sort_order||0)>=100))
+  // Auch Gruppenspiele mit eigener Beschriftung laufen im Hauptspielplan mit
+  const pm=MATCHES.filter(m=>(m.phase==="placement" || (m.phase==="group" && m.label))
+      && (before ? (m.sort_order||0)<100 : (m.sort_order||0)>=100))
     .sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
   if(!pm.length) return "";
   const rows=pm.map(m=>{
@@ -2892,7 +2912,7 @@ function matchSummary(m){
   const played=sets.filter(s=>s&&s.length===2&&s[0]!=null&&s[1]!=null);
   if(!played.length) return `<button class="btn btn-sm" data-res="${m.id}">Ergebnis</button>`;
   let hs=0,as=0; const parts=played.map(s=>{ if(s[0]>s[1])hs++; else if(s[1]>s[0])as++; return `${s[0]}:${s[1]}`; });
-  const need=(currentEvent&&currentEvent.win_sets)||2;
+  const need=matchNeed(m);
   const fertig = hs>=need || as>=need;
   if(!fertig){
     // Spiel läuft noch: Zwischenstand + weiterhin Eingabe-Button
@@ -3458,6 +3478,8 @@ async function buildRecipe(recipe, parts){
   for(const w of Object.keys(waves).map(Number).sort((a,b)=>a-b)){
     await chunk(waves[w].map(m=>({ id:mid[m.key], event_id:currentEvent.id, phase:"placement",
       label:m.label, sort_order:m.sort||0, status:"pending",
+      ...(m.win_sets!=null?{win_sets:m.win_sets}:{}),
+      ...(m.target_points!=null?{target_points:m.target_points}:{}),
       ...sideFields(m.home,"home"), ...sideFields(m.away,"away") })));
   }
 
@@ -3472,15 +3494,25 @@ async function buildRecipe(recipe, parts){
       gpAll.push(row);
     });
     const rounds=roundRobin(g.sources.length);
-    let no=1;
-    rounds.forEach((rd,ri)=> rd.forEach(([a,b])=>{
-      const sa=g.sources[a-1], sb2=g.sources[b-1];
+    let no=1; const flat=[];
+    rounds.forEach((rd,ri)=> rd.forEach(([a,b])=> flat.push({a,b,ri,no:no++}) ));
+    // Optional: eigene Nummer/Beschriftung/Reihenfolge je Spiel (g.plan)
+    // damit Gruppenspiele in den Ablauf der übrigen Spiele passen
+    flat.forEach(f=>{
+      const spec = (g.plan && g.plan[f.no]) || null;
+      const sa=g.sources[f.a-1], sb2=g.sources[f.b-1];
       const bye=(sa&&sa.bye)||(sb2&&sb2.bye);
-      rrAll.push({ id:crypto.randomUUID(), event_id:currentEvent.id, group_id:gid[g.key], phase:"group",
-        match_no:no, round:ri+1, sort_order:no, status:bye?"done":"pending", is_bye:!!bye,
-        ...sideFields(sa,"home"), ...sideFields(sb2,"away") });
-      no++;
-    }));
+      const row={ id:crypto.randomUUID(), event_id:currentEvent.id, group_id:gid[g.key], phase:"group",
+        match_no: spec&&spec.no!=null ? spec.no : f.no,
+        round: f.ri+1,
+        sort_order: spec&&spec.sort!=null ? spec.sort : f.no,
+        status:bye?"done":"pending", is_bye:!!bye,
+        ...sideFields(sa,"home"), ...sideFields(sb2,"away") };
+      if(spec&&spec.label) row.label=spec.label;
+      if(g.win_sets!=null) row.win_sets=g.win_sets;
+      if(g.target_points!=null) row.target_points=g.target_points;
+      rrAll.push(row);
+    });
   }
   if(gpAll.length){ const {error}=await sb.from("group_players").insert(gpAll); if(error) throw error; }
   if(rrAll.length){ await chunk(rrAll); }
@@ -3497,7 +3529,10 @@ function openResultModal(mid){
   const m=MATCHES.find(x=>x.id===mid); if(!m) return;
   resultMid=mid;
   $("#resMatchup").innerHTML=`<span id="resHomeName" class="pname-box">${regFull(m.home_reg_id)}</span><span style="color:var(--muted)">gegen</span><span id="resAwayName" class="pname-box">${regFull(m.away_reg_id)}</span>`;
-  const maxSets=(currentEvent.win_sets||2)*2-1;
+  const _need=matchNeed(m), _tgt=matchTarget(m);
+  $("#resRule").textContent = `${_need} Gewinnsatz${_need>1?"ze":""} bis ${_tgt} Punkte`+
+    (m.win_sets!=null||m.target_points!=null ? "  ·  abweichende Regel für dieses Spiel" : "");
+  const maxSets=matchNeed(m)*2-1;
   const sets=Array.isArray(m.sets)?m.sets:[];
   let html="";
   for(let i=0;i<maxSets;i++){
@@ -3524,7 +3559,7 @@ function openResultModal(mid){
         if(!isNaN(x)){
           const otherSide = inp.dataset.side==="h" ? "a" : "h";
           const other=$("#setRows").querySelector(`.setinp[data-si="${inp.dataset.si}"][data-side="${otherSide}"]`);
-          if(other) other.value = counterValue(x);
+          if(other) other.value = counterValue(x, matchTarget(currentMatch()));
         }
       }
       updateTally();
@@ -3562,7 +3597,12 @@ async function retirePlayer(retiredReg, winnerReg){
 // ---------- Ziffernfeld für Ergebnis-Eingabe (Handy-freundlich) ----------
 let padTarget=null, padPage=0;
 // Gegenwert nach der Regel: 0–9 → 11, ab 10 immer +2
-function counterValue(x){ return x<=9 ? 11 : x+2; }
+// Regel je Spiel (z. B. Quali: 1 Gewinnsatz bis 15)
+function matchNeed(m){ return (m&&m.win_sets!=null) ? Number(m.win_sets) : (currentEvent.win_sets||2); }
+function matchTarget(m){ return (m&&m.target_points!=null) ? Number(m.target_points) : 11; }
+// Gegenwert: Verlierer unter (Ziel-2) -> Ziel, sonst zwei mehr
+function counterValue(x, target){ const t=target||11; return x<=t-2 ? t : x+2; }
+function currentMatch(){ return MATCHES.find(x=>x.id===resultMid); }
 function openPad(inp){
   padTarget=inp;
   const v=parseInt(inp.value);
@@ -3592,7 +3632,7 @@ function padPick(n){
   // Gegenseite automatisch füllen (gleiche Regel wie beim Tippen)
   const otherSide = padTarget.dataset.side==="h" ? "a" : "h";
   const other=$("#setRows").querySelector(`.setinp[data-si="${padTarget.dataset.si}"][data-side="${otherSide}"]`);
-  if(other) other.value = counterValue(n);
+  if(other) other.value = counterValue(n, matchTarget(currentMatch()));
   updateTally();
   // automatisch zum nächsten noch leeren Feld weiterspringen
   const all=[...$("#setRows").querySelectorAll(".setinp")];
@@ -3619,7 +3659,7 @@ function tallyOf(sets){
   return {hs,as,hb,ab};
 }
 function updateTally(){
-  const need=currentEvent.win_sets||2;
+  const need=matchNeed(currentMatch());
   const t=tallyOf(readSets());
   const done=t.hs>=need||t.as>=need;
   $("#setTally").innerHTML=`Sätze <span class="mono">${t.hs} : ${t.as}</span>`+
@@ -3639,7 +3679,7 @@ $("#saveResultBtn").addEventListener("click", async ()=>{
   const sets=readSets().filter(s=>!(s[0]==null&&s[1]==null));
   if(sets.some(s=> (s[0]==null)!==(s[1]==null))){ toast("Bei jedem Satz beide Werte eintragen.",true); return; }
   const t=tallyOf(sets);
-  const need=currentEvent.win_sets||2;
+  const need=matchNeed(m);
   const done=t.hs>=need||t.as>=need;
   const patch={ sets: sets.length?sets:null, home_score:t.hs, away_score:t.as, status: done?"done":"pending" };
   if(done) patch.display_status="done";                  // beendet – erscheint nicht mehr auf dem Board
