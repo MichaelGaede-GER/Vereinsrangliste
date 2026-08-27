@@ -2644,7 +2644,8 @@ const MODES=[
       const trost = {
         key:"gTrost", name:"Trostrunde (Qualifikationsverlierer)", sort:0,
         sources:[{m:sp(1),t:"loser"},{m:sp(2),t:"loser"},{m:sp(3),t:"loser"},{m:sp(4),t:"loser"}],
-        win_sets: qrule.win_sets, target_points: qrule.target_points,
+        // Trostrunde spielt mit der normalen Turnier-Einstellung (2 oder 3 Gewinnsätze),
+        // NICHT mit der Quali-Sonderregel (1 Satz bis 15).
         // k1=(1,4)->SP33, k2=(2,3)->SP34, k3=(1,3)->SP23, k4=(2,4)->SP24, k5=(1,2)->SP13, k6=(3,4)->SP14
         plan:{
           1:{no:33, label:"SP-33 · Trostrunde", sort:133},
