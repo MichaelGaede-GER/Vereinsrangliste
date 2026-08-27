@@ -2633,7 +2633,7 @@ const MODES=[
       push(32,"Platzierungsrunde 13–16", {m:sp(21),t:"loser"}, {m:sp(22),t:"loser"});
       // 9) Finale & Platzierungsspiele (Labels mit "Platz X–Y" für die automatische Endplatzierung)
       push(35,"Finale (Platz 1–2)",            {m:sp(25),t:"winner"}, {m:sp(26),t:"winner"});
-      push(36,"Spiel um Platz 3 (Platz 3–4)",  {m:sp(25),t:"loser"},  {m:sp(26),t:"loser"});
+      push(36,"Kleines Finale (Platz 3–4)",   {m:sp(25),t:"loser"},  {m:sp(26),t:"loser"});
       push(37,"Platz 5–6",                     {m:sp(27),t:"winner"}, {m:sp(28),t:"winner"});
       push(38,"Platz 7–8",                     {m:sp(27),t:"loser"},  {m:sp(28),t:"loser"});
       push(39,"Platz 9–10",                    {m:sp(29),t:"winner"}, {m:sp(30),t:"winner"});
@@ -2642,7 +2642,7 @@ const MODES=[
       push(42,"Platz 15–16",                   {m:sp(31),t:"loser"},  {m:sp(32),t:"loser"});
       // 10) Trostrunde der 4 Qualifikationsverlierer: Round-Robin, feste SP-Reihenfolge 13,14,23,24,33,34
       const trost = {
-        key:"gTrost", name:"Trostrunde (Qualifikationsverlierer)", sort:0,
+        key:"gTrost", name:"Trostrunde (Platz 15–18)", sort:0,
         sources:[{m:sp(1),t:"loser"},{m:sp(2),t:"loser"},{m:sp(3),t:"loser"},{m:sp(4),t:"loser"}],
         // Trostrunde spielt mit der normalen Turnier-Einstellung (2 oder 3 Gewinnsätze),
         // NICHT mit der Quali-Sonderregel (1 Satz bis 15).
