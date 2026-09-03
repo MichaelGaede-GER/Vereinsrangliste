@@ -2152,36 +2152,45 @@ const MODES=[
     } },
   { id:"quad3", label:"4 × 3er-Gruppe + K.-o.-Platzierung (11–12 Teilnehmer)", min:11, max:12, sizable:false,
     build(parts){
-      const caps=[ parts.length<=11?2:3, 3,3,3 ];      // Freilos in Gruppe A bei 11 Teilnehmern
-      const G=[[],[],[],[]];
-      let gi=0, idx=0;
-      while(idx<parts.length && idx<12){
-        if(G[gi].length<caps[gi]){ G[gi].push(parts[idx]); idx++; }
-        gi=(gi+1)%4;
-      }
-      const slots=G.map(g=>{ const s=g.slice(); while(s.length<3) s.push(null); return s; });
-      return {
-        groups:[{name:"Gruppe A",slots:slots[0]},{name:"Gruppe B",slots:slots[1]},
-                {name:"Gruppe C",slots:slots[2]},{name:"Gruppe D",slots:slots[3]}],
-        finalGroups:[], placements:[],
-        bracket:[
-          // Plätze 1–4
-          {key:"HF1",  label:"Halbfinale 1",       home:{g:0,place:1}, away:{g:3,place:1}},
-          {key:"HF2",  label:"Halbfinale 2",       home:{g:1,place:1}, away:{g:2,place:1}},
-          {key:"F12",  label:"Finale (Platz 1–2)", home:{m:"HF1",t:"winner"}, away:{m:"HF2",t:"winner"}},
-          {key:"P34",  label:"Platz 3–4",          home:{m:"HF1",t:"loser"},  away:{m:"HF2",t:"loser"}},
-          // Plätze 5–8
-          {key:"S1",   label:"Platz 5–8 · Spiel 1", home:{g:0,place:2}, away:{g:3,place:2}},
-          {key:"S2",   label:"Platz 5–8 · Spiel 2", home:{g:1,place:2}, away:{g:2,place:2}},
-          {key:"P56",  label:"Platz 5–6",           home:{m:"S1",t:"winner"}, away:{m:"S2",t:"winner"}},
-          {key:"P78",  label:"Platz 7–8",           home:{m:"S1",t:"loser"},  away:{m:"S2",t:"loser"}},
-          // Plätze 9–12
-          {key:"T1",   label:"Platz 9–12 · Spiel 1", home:{g:0,place:3}, away:{g:3,place:3}},
-          {key:"T2",   label:"Platz 9–12 · Spiel 2", home:{g:1,place:3}, away:{g:2,place:3}},
-          {key:"P910", label:"Platz 9–10",           home:{m:"T1",t:"winner"}, away:{m:"T2",t:"winner"}},
-          {key:"P1112",label:"Platz 11–12",          home:{m:"T1",t:"loser"},  away:{m:"T2",t:"loser"}},
-        ]
-      };
+      // Schlangen-Setzung (S-Curve) über 4 Gruppen: A,B,C,D, D,C,B,A, A,B,C,D
+      // ergibt z. B. bei 12 Teilnehmern: A=1,8,9 · B=2,7,10 · C=3,6,11 · D=4,5,12
+      const seq=["A","B","C","D","D","C","B","A","A","B","C","D"];
+      const bySlot={A:[],B:[],C:[],D:[]};
+      for(let i=0;i<parts.length && i<12;i++) bySlot[seq[i]].push({seed:i+1});
+      ["A","B","C","D"].forEach(k=>{ while(bySlot[k].length<3) bySlot[k].push({bye:true}); });
+
+      const sp=(n)=>"sp"+n;
+      // Gruppenspiele SP-01 bis SP-12: pro Runde alle vier Gruppen (A,B,C,D)
+      // Runde 1 (1 gg 2): SP-01..04 · Runde 2 (2 gg 3): SP-05..08 · Runde 3 (1 gg 3): SP-09..12
+      const groupDefs=["A","B","C","D"].map((letter,idx)=>({
+        key:"g"+letter, name:"Gruppe "+letter, sort:idx,
+        sources: bySlot[letter],
+        plan:{
+          3:{no:idx+1, label:"SP-"+String(idx+1).padStart(2,"0")+" · Gruppe "+letter, sort:idx+1},
+          1:{no:idx+5, label:"SP-"+String(idx+5).padStart(2,"0")+" · Gruppe "+letter, sort:idx+5},
+          2:{no:idx+9, label:"SP-"+String(idx+9).padStart(2,"0")+" · Gruppe "+letter, sort:idx+9}
+        }
+      }));
+
+      // Platzierungsspiele SP-13 bis SP-24 (K.-o.-Runde nach den Gruppen)
+      const M=[];
+      const push=(no,label,home,away)=> M.push({ key:sp(no), label:"SP-"+String(no).padStart(2,"0")+" · "+label, sort:100+no, home, away });
+      // Runde 1 der Platzierung (SP-13..18)
+      push(13,"Halbfinale (Platz 1–4)",   {g:"gA",place:1}, {g:"gD",place:1});
+      push(14,"Halbfinale (Platz 1–4)",   {g:"gB",place:1}, {g:"gC",place:1});
+      push(15,"Platz 5–8 · Spiel 1",      {g:"gA",place:2}, {g:"gD",place:2});
+      push(16,"Platz 5–8 · Spiel 2",      {g:"gB",place:2}, {g:"gC",place:2});
+      push(17,"Platz 9–12 · Spiel 1",     {g:"gA",place:3}, {g:"gD",place:3});
+      push(18,"Platz 9–12 · Spiel 2",     {g:"gB",place:3}, {g:"gC",place:3});
+      // Runde 2 der Platzierung: Finals (SP-19..24)
+      push(19,"Finale (Platz 1–2)",       {m:sp(13),t:"winner"}, {m:sp(14),t:"winner"});
+      push(20,"Platz 3–4",                {m:sp(13),t:"loser"},  {m:sp(14),t:"loser"});
+      push(21,"Platz 5–6",                {m:sp(15),t:"winner"}, {m:sp(16),t:"winner"});
+      push(22,"Platz 7–8",                {m:sp(15),t:"loser"},  {m:sp(16),t:"loser"});
+      push(23,"Platz 9–10",               {m:sp(17),t:"winner"}, {m:sp(18),t:"winner"});
+      push(24,"Platz 11–12",              {m:sp(17),t:"loser"},  {m:sp(18),t:"loser"});
+
+      return { recipe:{ matches:M, groups:groupDefs } };
     } },
   { id:"ko13", label:"13er K.-o. mit Platzierung 1–13 (13 Teilnehmer)", min:13, max:13, sizable:false,
     build(parts){
