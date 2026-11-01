@@ -332,6 +332,41 @@
     .btn{min-height:38px}
     .btn-ghost,.btn-danger{min-height:34px}
   }
+  /* ===== Handy: Spielplan als Karten statt breiter Tabelle ===== */
+  @media(max-width:640px){
+    table.matches.plan thead{display:none}
+    table.matches.plan,table.matches.plan tbody{display:block;width:100%}
+    table.matches.plan tbody tr{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));
+      grid-template-areas:"nr nr nr nr dur dur" "court court status status zeit zeit"
+        "home home home away away away" "res res res res res res";
+      gap:8px 8px;padding:12px 12px 14px;border-bottom:1px solid var(--border);align-items:center}
+    table.matches.plan tbody tr td{display:block;padding:0;border:0;min-width:0;font-size:15px}
+    table.matches.plan td:nth-child(1){grid-area:nr;font-weight:700;font-size:15px;color:var(--ink);width:auto;font-family:inherit}
+    table.matches.plan td:nth-child(2){grid-area:court}
+    table.matches.plan td:nth-child(3){grid-area:status}
+    table.matches.plan td:nth-child(4){grid-area:zeit}
+    table.matches.plan td:nth-child(5){grid-area:dur;justify-self:end;white-space:nowrap}
+    table.matches.plan td:nth-child(6){grid-area:home;text-align:left !important}
+    table.matches.plan td:nth-child(7){grid-area:res;text-align:left !important}
+    table.matches.plan td:nth-child(8){grid-area:away;text-align:right}
+    /* Felder füllen ihre Spalte */
+    table.matches.plan .mini.court,table.matches.plan .mini.mstatus,table.matches.plan .mini.time{width:100%;min-width:0}
+    table.matches.plan td:nth-child(2) > *{width:100%}
+    table.matches.plan .ballicon.empty{display:none}
+    /* Namen dürfen umbrechen statt rauszulaufen */
+    table.matches.plan .who{white-space:normal;font-weight:600;line-height:1.3}
+    /* Ergebnis-Button über die volle Breite, gut tippbar */
+    table.matches.plan td:nth-child(7) .btn{width:100%;min-height:42px;justify-content:center}
+    table.matches.plan td:nth-child(7) .btn-ghost{background:var(--surface,#fff);border:1px solid var(--border-strong)}
+    table.matches.plan td:nth-child(7) .btn-ghost .mono{font-size:16px}
+    /* Dauer: leeres „–" ausblenden, sonst mit Einheit */
+    table.matches.plan td:nth-child(5):not(:has(input,.runclock)){display:none}
+    table.matches.plan td:nth-child(5):has(input)::after{content:" min";color:var(--muted);font-size:13px}
+    /* Freilos-Zeilen: leere Court/Status/Zeit-Felder weglassen */
+    table.matches.plan td:nth-child(n+2):nth-child(-n+4):not(:has(select,input)){display:none}
+    table.matches.plan tr.oncourt,table.matches.plan tr.inprep{box-shadow:inset 5px 0 0 var(--ok,#2E7D4F)}
+    table.matches.plan tr.inprep{box-shadow:inset 5px 0 0 #E0A33E}
+  }
 </style>
 </head>
 <body>
@@ -3064,7 +3099,7 @@ function renderGroupBlock(g,need){
     </div>
     ${inlineMode ? `<div style="padding:8px 18px 0;color:var(--muted);font-size:12px">Die Spiele dieser Gruppe stehen oben im Spielplan (Nr. ${all.filter(m=>!m.is_bye).map(m=>m.match_no).sort((a,b)=>a-b).join(", ")}).</div>` : `
     <div class="gb-section-title">Spielplan</div>
-    <div style="overflow-x:auto"><table class="matches">
+    <div style="overflow-x:auto"><table class="matches plan">
       <thead><tr><th>Nr</th><th>Court</th><th>Status</th><th>Zeit</th><th>Dauer</th><th style="text-align:right">Heim</th><th style="text-align:center">Ergebnis</th><th>Gast</th></tr></thead>
       <tbody>${rows}</tbody>
     </table></div>`}
@@ -3114,7 +3149,7 @@ function renderFinalBlock(g,need){
   return `<div class="group-block" data-gid="${g.id}">
     <div class="gb-head"><h3>${esc(g.name)}<span class="gb-sub">${g.size||members.length} Spieler · ${need} Gewinnsätze</span></h3></div>
     <div class="gb-section-title">Spielplan</div>
-    <div style="overflow-x:auto"><table class="matches"><thead><tr><th>Nr</th><th>Court</th><th>Status</th><th>Zeit</th><th>Dauer</th><th style="text-align:right">Heim</th><th style="text-align:center">Ergebnis</th><th>Gast</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <div style="overflow-x:auto"><table class="matches plan"><thead><tr><th>Nr</th><th>Court</th><th>Status</th><th>Zeit</th><th>Dauer</th><th style="text-align:right">Heim</th><th style="text-align:center">Ergebnis</th><th>Gast</th></tr></thead><tbody>${rows}</tbody></table></div>
     <div class="gb-section-title">Tabelle</div>
     <div style="overflow-x:auto"><table class="standings"><thead><tr><th>Pl.</th><th>Spieler</th><th class="st">Sp</th><th class="st">S</th><th class="st">N</th><th class="st">Pkte</th><th class="st">Sätze</th><th class="st">Punkte</th></tr></thead><tbody>${srows}</tbody></table></div>
   </div>`;
@@ -3149,7 +3184,7 @@ function renderStandalone(need, before){
   }).join("");
   return `<div class="group-block">
     <div class="gb-head"><h3>${before?"1. Runde":"Platzierungs- &amp; K.-o.-Spiele"}<span class="gb-sub">${need} Gewinnsätze</span></h3></div>
-    <div style="overflow-x:auto"><table class="matches">
+    <div style="overflow-x:auto"><table class="matches plan">
       <thead><tr><th>Spiel</th><th>Court</th><th>Status</th><th>Zeit</th><th>Dauer</th><th style="text-align:right">Heim</th><th style="text-align:center">Ergebnis</th><th>Gast</th></tr></thead>
       <tbody>${rows}</tbody>
     </table></div>
