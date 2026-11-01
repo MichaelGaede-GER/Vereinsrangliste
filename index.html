@@ -271,7 +271,7 @@
   .score[type=number]{-moz-appearance:textfield;appearance:textfield}
   .score.padsel{border-color:var(--ok);box-shadow:0 0 0 3px var(--ok-soft,#E8F3EC)}
   .padnum:active{background:var(--ok-soft,#E8F3EC)}
-  @media (max-width:640px){ #padGrid{grid-template-columns:repeat(5,1fr)} .padnum{padding:16px 0 !important;font-size:20px !important} }
+  @media (max-width:640px){ #padGrid{grid-template-columns:repeat(5,minmax(0,1fr))} .padnum{padding:16px 0 !important;font-size:20px !important} }
   table.standings{width:100%;border-collapse:collapse}
   table.standings th{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.03em;
     color:var(--muted);text-align:left;padding:8px 10px;border-bottom:1px solid var(--border)}
@@ -366,6 +366,35 @@
     table.matches.plan td:nth-child(n+2):nth-child(-n+4):not(:has(select,input)){display:none}
     table.matches.plan tr.oncourt,table.matches.plan tr.inprep{box-shadow:inset 5px 0 0 var(--ok,#2E7D4F)}
     table.matches.plan tr.inprep{box-shadow:inset 5px 0 0 #E0A33E}
+  }
+  /* ===== Handy: Ergebnis-Eingabe passt auf den Bildschirm ===== */
+  .overlay{grid-template-columns:minmax(0,1fr)}
+  .modal{min-width:0;justify-self:center}
+  #padGrid .padnum{justify-content:center;padding-left:0;padding-right:0}
+  #retireRow .btn{white-space:normal;text-align:center;justify-content:center;line-height:1.25}
+  #resMatchup .pname-box{min-width:0;overflow-wrap:anywhere}
+  @media(max-width:640px){
+    #resultModal{padding:8px;align-items:end}
+    #resultModal .modal{max-width:none !important;max-height:96vh;border-radius:16px}
+    #resultModal .modal-head{padding:12px 16px}
+    #resultModal .modal-body{padding:12px 14px}
+    #resMatchup{font-size:15px;text-align:center}
+    #resMatchup .pname-box{flex:1 1 0;padding:7px 8px}
+    #resRule{margin-bottom:10px !important}
+    #setRows .setrow{gap:8px !important;margin-bottom:6px !important}
+    #setRows .setlbl{width:46px !important;flex:0 0 46px}
+    #setRows .score{flex:1 1 0;width:auto;min-width:0;height:52px;font-size:22px}
+    #padWrap{margin-top:10px !important;padding-top:10px !important}
+    #padGrid{gap:6px !important}
+    #padGrid .padnum{padding:14px 0 !important;font-size:22px !important;min-height:52px}
+    #padPrev,#padNext{min-height:44px;justify-content:center}
+    #setTally{margin-top:10px !important}
+    #retireRow{margin-top:12px !important;padding-top:10px !important}
+    #retireRow .btn{font-size:13px}
+    #resultModal .modal-foot{flex-wrap:nowrap;gap:8px;padding:10px 14px}
+    #resultModal .modal-foot .foot-spacer{display:none}
+    #resultModal .modal-foot .btn{flex:1 1 0;justify-content:center;min-height:46px;padding-left:6px;padding-right:6px}
+    #resultModal #saveResultBtn{flex:1.4 1 0;font-weight:700}
   }
 </style>
 </head>
@@ -801,7 +830,7 @@
           <span style="font-size:13px;color:var(--muted)" id="padTitle">Punkte wählen</span>
           <button class="btn btn-ghost btn-sm" id="padClose">Schließen</button>
         </div>
-        <div id="padGrid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px"></div>
+        <div id="padGrid" style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px"></div>
         <div style="display:flex;gap:8px;margin-top:8px">
           <button class="btn btn-sm" id="padPrev" style="flex:1">← zurück</button>
           <button class="btn btn-sm" id="padNext" style="flex:1">mehr →</button>
@@ -818,7 +847,7 @@
     </div>
     <div class="modal-foot">
       <button class="btn btn-danger" id="clearResultBtn">Leeren</button>
-      <span style="flex:1"></span>
+      <span class="foot-spacer" style="flex:1"></span>
       <button class="btn" data-close-result>Abbrechen</button>
       <button class="btn btn-primary" id="saveResultBtn">Speichern</button>
     </div>
@@ -3815,15 +3844,15 @@ function openResultModal(mid){
   resultMid=mid;
   $("#resMatchup").innerHTML=`<span id="resHomeName" class="pname-box">${regFull(m.home_reg_id)}</span><span style="color:var(--muted)">gegen</span><span id="resAwayName" class="pname-box">${regFull(m.away_reg_id)}</span>`;
   const _need=matchNeed(m), _tgt=matchTarget(m);
-  $("#resRule").textContent = `${_need} Gewinnsatz${_need>1?"ze":""} bis ${_tgt} Punkte`+
+  $("#resRule").textContent = `${_need} ${_need>1?"Gewinnsätze":"Gewinnsatz"} bis ${_tgt} Punkte`+
     (m.win_sets!=null||m.target_points!=null ? "  ·  abweichende Regel für dieses Spiel" : "");
   const maxSets=matchNeed(m)*2-1;
   const sets=Array.isArray(m.sets)?m.sets:[];
   let html="";
   for(let i=0;i<maxSets;i++){
     const s=sets[i]||[null,null];
-    html+=`<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-      <span style="width:52px;color:var(--muted);font-size:13px">Satz ${i+1}</span>
+    html+=`<div class="setrow" style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+      <span class="setlbl" style="width:52px;color:var(--muted);font-size:13px">Satz ${i+1}</span>
       <input class="score setinp" data-si="${i}" data-side="h" type="number" min="0" inputmode="numeric" value="${s[0]??""}">
       <span class="vs">:</span>
       <input class="score setinp" data-si="${i}" data-side="a" type="number" min="0" inputmode="numeric" value="${s[1]??""}"></div>`;
