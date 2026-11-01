@@ -374,8 +374,12 @@
   #retireRow .btn{white-space:normal;text-align:center;justify-content:center;line-height:1.25}
   #resMatchup .pname-box{min-width:0;overflow-wrap:anywhere}
   @media(max-width:640px){
-    #resultModal{padding:8px;align-items:end}
-    #resultModal .modal{max-width:none !important;max-height:96vh;border-radius:16px}
+    /* Seite darf nicht seitlich überlaufen – sonst wird der Anzeigebereich unsichtbar breiter */
+    html,body{overflow-x:hidden;max-width:100%}
+    #resultModal{padding:8px;align-items:end;justify-items:start;
+      left:0;top:0;right:auto;bottom:auto;width:100vw;height:100vh;height:100dvh}
+    #resultModal .modal{width:calc(100vw - 16px);max-width:calc(100vw - 16px) !important;
+      justify-self:start;max-height:calc(100dvh - 16px);border-radius:16px}
     #resultModal .modal-head{padding:12px 16px}
     #resultModal .modal-body{padding:12px 14px}
     #resMatchup{font-size:15px;text-align:center}
