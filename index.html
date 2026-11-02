@@ -1844,7 +1844,10 @@ function renderPlanFilter(){
   let act=0, dn=0;
   MATCHES.forEach(m=>{
     const isDone = m.status==="done" || m.display_status==="done";
-    if(isDone) dn++; else if(!m.is_bye) act++;
+    // Freilos-/kampflose Spiele (auch erst im Verlauf entstandene) zählen nicht als aktiv
+    // (Gruppenspiele: Spieler kommen über die Gruppe -> dort nur das feste Freilos-Flag)
+    const walk = m.group_id ? !!m.is_bye : isWalkover(m);
+    if(isDone) dn++; else if(!walk) act++;
   });
   const a=$("#pfActiveCnt"), d=$("#pfDoneCnt");
   if(a) a.textContent=act;
