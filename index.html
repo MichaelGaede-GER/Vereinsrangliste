@@ -2494,6 +2494,72 @@ const MODES=[
         ]
       }};
     } },
+  { id:"ko17q", label:"17er K.-o. mit Quali + Trostrunde, Platz 1–17 (17 Teilnehmer)", min:17, max:17, sizable:false,
+    build(parts){
+      // Spielnummern wie auf dem Papier-Bogen (SP-1 … SP-42); sort = Spielnummer
+      const Q={win_sets:1, target_points:15};   // Quali: 1 Satz bis 15 (bei 14:14 zwei Punkte Abstand)
+      return { recipe:{
+        matches:[
+          // Qualifikation: Sieger -> Hauptfeld (QA–QD auf Pos. 10–13), Verlierer -> Trostrunde
+          {key:"mQA", label:"SP-1 · Qualifikation A", sort:1, ...Q, home:{seed:10}, away:{seed:17}},
+          {key:"mQB", label:"SP-2 · Qualifikation B", sort:2, ...Q, home:{seed:11}, away:{seed:16}},
+          {key:"mQC", label:"SP-3 · Qualifikation C", sort:3, ...Q, home:{seed:12}, away:{seed:15}},
+          {key:"mQD", label:"SP-4 · Qualifikation D", sort:4, ...Q, home:{seed:13}, away:{seed:14}},
+          // Hauptfeld 1. Runde (16er-Raster): Setz. 1–9, QA=10, QB=11, QC=12, QD=13, Pos. 14–16 Freilos
+          {key:"m5",  label:"SP-5 · 1. Runde",  sort:5,  home:{seed:1},  away:{bye:true}},
+          {key:"m6",  label:"SP-6 · 1. Runde",  sort:6,  home:{seed:9},  away:{seed:8}},
+          {key:"m7",  label:"SP-7 · 1. Runde",  sort:7,  home:{seed:5},  away:{m:"mQC",t:"winner"}},
+          {key:"m8",  label:"SP-8 · 1. Runde",  sort:8,  home:{m:"mQD",t:"winner"}, away:{seed:4}},
+          {key:"m9",  label:"SP-9 · 1. Runde",  sort:9,  home:{seed:3},  away:{bye:true}},
+          {key:"m10", label:"SP-10 · 1. Runde", sort:10, home:{m:"mQB",t:"winner"}, away:{seed:6}},
+          {key:"m11", label:"SP-11 · 1. Runde", sort:11, home:{seed:7},  away:{m:"mQA",t:"winner"}},
+          {key:"m12", label:"SP-12 · 1. Runde", sort:12, home:{bye:true}, away:{seed:2}},
+          // Viertelfinale
+          {key:"m15", label:"SP-15 · Viertelfinale", sort:15, home:{m:"m5",t:"winner"},  away:{m:"m6",t:"winner"}},
+          {key:"m16", label:"SP-16 · Viertelfinale", sort:16, home:{m:"m7",t:"winner"},  away:{m:"m8",t:"winner"}},
+          {key:"m17", label:"SP-17 · Viertelfinale", sort:17, home:{m:"m9",t:"winner"},  away:{m:"m10",t:"winner"}},
+          {key:"m18", label:"SP-18 · Viertelfinale", sort:18, home:{m:"m11",t:"winner"}, away:{m:"m12",t:"winner"}},
+          // Position 9–16 (Verlierer 1. Runde)
+          {key:"m19", label:"SP-19 · Pos. 9–16", sort:19, home:{m:"m5",t:"loser"},  away:{m:"m6",t:"loser"}},
+          {key:"m20", label:"SP-20 · Pos. 9–16", sort:20, home:{m:"m7",t:"loser"},  away:{m:"m8",t:"loser"}},
+          {key:"m21", label:"SP-21 · Pos. 9–16", sort:21, home:{m:"m9",t:"loser"},  away:{m:"m10",t:"loser"}},
+          {key:"m22", label:"SP-22 · Pos. 9–16", sort:22, home:{m:"m11",t:"loser"}, away:{m:"m12",t:"loser"}},
+          // Halbfinale + Position 5–8
+          {key:"m25", label:"SP-25 · Halbfinale", sort:25, home:{m:"m15",t:"winner"}, away:{m:"m16",t:"winner"}},
+          {key:"m26", label:"SP-26 · Halbfinale", sort:26, home:{m:"m17",t:"winner"}, away:{m:"m18",t:"winner"}},
+          {key:"m27", label:"SP-27 · Pos. 5–8",   sort:27, home:{m:"m15",t:"loser"},  away:{m:"m16",t:"loser"}},
+          {key:"m28", label:"SP-28 · Pos. 5–8",   sort:28, home:{m:"m17",t:"loser"},  away:{m:"m18",t:"loser"}},
+          // Position 9–12 / 13–16
+          {key:"m29", label:"SP-29 · Pos. 9–12",  sort:29, home:{m:"m19",t:"winner"}, away:{m:"m20",t:"winner"}},
+          {key:"m30", label:"SP-30 · Pos. 9–12",  sort:30, home:{m:"m21",t:"winner"}, away:{m:"m22",t:"winner"}},
+          {key:"m31", label:"SP-31 · Pos. 13–16", sort:31, home:{m:"m19",t:"loser"},  away:{m:"m20",t:"loser"}},
+          {key:"m32", label:"SP-32 · Pos. 13–16", sort:32, home:{m:"m21",t:"loser"},  away:{m:"m22",t:"loser"}},
+          // Platzierungsspiele
+          {key:"m35", label:"SP-35 · Finale (Platz 1–2)", sort:35, home:{m:"m25",t:"winner"}, away:{m:"m26",t:"winner"}},
+          {key:"m36", label:"SP-36 · Platz 3–4",   sort:36, home:{m:"m25",t:"loser"},  away:{m:"m26",t:"loser"}},
+          {key:"m37", label:"SP-37 · Platz 5–6",   sort:37, home:{m:"m27",t:"winner"}, away:{m:"m28",t:"winner"}},
+          {key:"m38", label:"SP-38 · Platz 7–8",   sort:38, home:{m:"m27",t:"loser"},  away:{m:"m28",t:"loser"}},
+          {key:"m39", label:"SP-39 · Platz 9–10",  sort:39, home:{m:"m29",t:"winner"}, away:{m:"m30",t:"winner"}},
+          {key:"m40", label:"SP-40 · Platz 11–12", sort:40, home:{m:"m29",t:"loser"},  away:{m:"m30",t:"loser"}},
+          {key:"m41", label:"SP-41 · Platz 13",    sort:41, home:{m:"m31",t:"winner"}, away:{m:"m32",t:"winner"}},
+          {key:"m42", label:"SP-42 · Pos. 15–16 (Freilos)", sort:42, home:{m:"m31",t:"loser"}, away:{m:"m32",t:"loser"}},
+        ],
+        groups:[
+          // Quali-Verlierer: jeder gegen jeden -> Platz 14–17
+          // roundRobin(4): Nr.1=A:D, 2=B:C, 3=A:C, 4=D:B, 5=A:B, 6=C:D
+          {key:"gTrost", name:"Trostrunde (Platz 14–17)", sort:0,
+            sources:[{m:"mQA",t:"loser"},{m:"mQB",t:"loser"},{m:"mQC",t:"loser"},{m:"mQD",t:"loser"}],
+            plan:{
+              5:{no:13, label:"SP-13 · Trostrunde", sort:13},
+              6:{no:14, label:"SP-14 · Trostrunde", sort:14},
+              3:{no:23, label:"SP-23 · Trostrunde", sort:23},
+              4:{no:24, label:"SP-24 · Trostrunde", sort:24},
+              1:{no:33, label:"SP-33 · Trostrunde", sort:33},
+              2:{no:34, label:"SP-34 · Trostrunde", sort:34}
+            }},
+        ]
+      }};
+    } },
   { id:"grp18", label:"18er Gruppensystem mit Platzierung 1–18 (18 Teilnehmer)", min:18, max:18, sizable:false,
     build(parts){
       return { recipe:{
@@ -3478,6 +3544,7 @@ function syncModeUi(){
     else if(mode.id==="ko15"){ msg=`16er-K.-o.-Raster · 15 Spieler · Freilos für Setz. 1 · jeder Platz 1–15 wird ausgespielt`; }
     else if(mode.id==="ko16"){ msg=`16er-K.-o.-Raster · 16 Spieler · keine Freilose · jeder Platz 1–16 wird ausgespielt`; }
     else if(mode.id==="grp17"){ msg=`17 Spieler · 1. Runde → Gruppen A–C (Sieger) & D–E (Verlierer) → Platzierung 1–17`; }
+    else if(mode.id==="ko17q"){ msg=`17 Spieler · Quali (Setz. 10–17, 1 Satz bis 15) → 16er-K.-o. (Setz. 1–9 + QA–QD, 3 Freilose, Platz 1–13) + Trostrunde (Platz 14–17)`; }
     else if(mode.id==="grp18"){ msg=`18 Spieler · 1. Runde → Gruppen A–C (Sieger) & D–F (Verlierer) → Platzierung 1–18`; }
     else if(mode.id==="ko19"){ msg=`19 Spieler · Quali (Setz. 12–19) → 16er-K.-o. (Platz 1–15) + Trostrunde (Platz 16–19)`; }
     else if(mode.id==="ko20"){ msg=`20 Spieler · Quali (Setz. 13–20) → 16er-K.-o. (Platz 1–16) + Trostrunde (Platz 17–20)`; }
