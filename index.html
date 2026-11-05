@@ -1636,6 +1636,7 @@ function renderRegs(){
         <option value="account"${pm==="account"?" selected":""}>Konto</option>
       </select>`;
     const retired = r.retired_at?` <span class="badge" style="background:#FBEAE9;color:#C4362F;border-color:#f3c9c6">aufgegeben</span>`:"";
+    if(r.retired_at) actions = `<button class="btn btn-sm" data-unretire="${r.id}">Aufgabe zurücknehmen</button> `+actions;
     return `<tr><td class="pname">${name}${retired}</td><td>${badge}</td>
       <td class="num mono">${eur(fee)}</td>
       <td>${pay}</td>
@@ -1649,6 +1650,19 @@ function renderRegs(){
   $("#regBody").querySelectorAll("[data-rmreg]").forEach(b=>b.addEventListener("click",()=>removeReg(b.dataset.rmreg)));
   $("#regBody").querySelectorAll("[data-conv]").forEach(b=>b.addEventListener("click",()=>convertGuest(b.dataset.conv)));
   $("#regBody").querySelectorAll("[data-payreg]").forEach(sel=>sel.addEventListener("change",()=>setPayment(sel.dataset.payreg, sel.value)));
+  $("#regBody").querySelectorAll("[data-unretire]").forEach(b=>b.addEventListener("click",()=>unretirePlayer(b.dataset.unretire)));
+}
+// Versehentlich gesetzte Aufgabe wieder aufheben
+async function unretirePlayer(regId){
+  const nm=playerNameOfReg(regId).name;
+  if(!confirm(`Aufgabe von ${nm} zurücknehmen?\nSpiele ohne eingetragenes Ergebnis sind danach wieder offen und müssen eingetragen werden.`)) return;
+  const {error}=await sb.from("registrations").update({retired_at:null}).eq("id",regId);
+  if(error){ toast(error.message,true); return; }
+  const r=currentRegs.find(x=>x.id===regId); if(r) r.retired_at=null;
+  RETIRED.delete(regId);
+  renderRegs();
+  if(currentEvent && (GROUPS.length||MATCHES.length)){ await loadTournament(); await assignCourts(); }
+  toast("Aufgabe von "+nm+" zurückgenommen.");
 }
 async function setPayment(regId, method){
   const patch={ payment_method: method||null };
