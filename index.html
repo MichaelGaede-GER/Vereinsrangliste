@@ -893,10 +893,15 @@
       </div>
       <div id="setTally" style="text-align:center;margin-top:16px;font-family:var(--f-body);font-weight:600"></div>
       <div id="retireRow" style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
-        <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Aufgabe wegen Verletzung — der Gegner gewinnt kampflos, der verletzte Spieler wird als Freilos weitergeschoben und am Turnierende zuletzt platziert.</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Aufgabe wegen Verletzung — der Gegner gewinnt kampflos, der verletzte Spieler wird als Freilos weitergeschoben und erhält am Turnierende Rang 99.</div>
         <div style="display:flex;gap:8px">
           <button class="btn btn-sm" id="retireHomeBtn" style="flex:1"></button>
           <button class="btn btn-sm" id="retireAwayBtn" style="flex:1"></button>
+        </div>
+        <div style="font-size:12px;color:var(--muted);margin:12px 0 8px">Nicht angetreten — nur dieses Spiel wird kampflos verloren (z. B. 11:0 11:0), der Spieler bleibt normal in der Wertung.</div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-sm" id="noshowHomeBtn" style="flex:1"></button>
+          <button class="btn btn-sm" id="noshowAwayBtn" style="flex:1"></button>
         </div>
       </div>
     </div>
@@ -4079,6 +4084,10 @@ function openResultModal(mid){
     $("#retireAwayBtn").textContent = "🏳 "+regShort(ar)+" gibt auf";
     $("#retireHomeBtn").onclick = ()=>retirePlayer(hr, ar);
     $("#retireAwayBtn").onclick = ()=>retirePlayer(ar, hr);
+    $("#noshowHomeBtn").textContent = "🚫 "+regShort(hr)+" tritt nicht an";
+    $("#noshowAwayBtn").textContent = "🚫 "+regShort(ar)+" tritt nicht an";
+    $("#noshowHomeBtn").onclick = ()=>noShow("home");
+    $("#noshowAwayBtn").onclick = ()=>noShow("away");
   } else { rrow.style.display="none"; }
   $("#resultModal").classList.remove("hidden");
   $("#padWrap").classList.add("hidden");
@@ -4086,7 +4095,7 @@ function openResultModal(mid){
 }
 async function retirePlayer(retiredReg, winnerReg){
   const nm=regShort(retiredReg);
-  if(!confirm(`${nm} gibt auf?\nDer Gegner gewinnt kampflos. ${nm} wird als Freilos weitergeschoben und am Turnierende zuletzt platziert.`)) return;
+  if(!confirm(`${playerNameOfReg(retiredReg).name} gibt auf (Verletzung)?\nDer Gegner gewinnt kampflos. Der Spieler wird für alle weiteren Spiele als Freilos weitergeschoben und erhält am Turnierende Rang 99.`)) return;
   const r=currentRegs.find(x=>x.id===retiredReg);
   const ts=(r&&r.retired_at)?r.retired_at:new Date().toISOString();   // erste Aufgabe zählt für die Reihenfolge
   const {error}=await sb.from("registrations").update({retired_at:ts}).eq("id",retiredReg);
@@ -4197,6 +4206,27 @@ $("#saveResultBtn").addEventListener("click", async ()=>{
   setSubtab("plan");
   toast("Ergebnis gespeichert.");
 });
+// Nicht angetreten: nur dieses Spiel kampflos verloren (Gewinnsätze x Ziel:0), keine Aufgabe-Markierung
+async function noShow(side){
+  if(!resultMid) return;
+  const m=MATCHES.find(x=>x.id===resultMid); if(!m) return;
+  const loserReg = side==="home" ? m.home_reg_id : m.away_reg_id;
+  const need=matchNeed(m), tgt=matchTarget(m);
+  if(!confirm(`${playerNameOfReg(loserReg).name} tritt nicht an?\nDas Spiel wird kampflos ${Array(need).fill(side==="home"?`0:${tgt}`:`${tgt}:0`).join(" ")} für den Gegner gewertet. Der Spieler bleibt in der Wertung (keine Aufgabe).`)) return;
+  const sets=Array.from({length:need},()=> side==="home" ? [0,tgt] : [tgt,0]);
+  const patch={ sets, home_score: side==="home"?0:need, away_score: side==="home"?need:0,
+    status:"done", display_status:"done",
+    home_reg_id:m.home_reg_id||null, away_reg_id:m.away_reg_id||null };
+  if(m.started_at && !m.ended_at) patch.ended_at=new Date().toISOString();
+  const {error}=await sb.from("matches").update(patch).eq("id",resultMid);
+  if(error){ toast(error.message,true); return; }
+  $("#resultModal").classList.add("hidden");
+  await loadTournament();
+  await assignCourts();
+  setSubtab("plan");
+  toast(playerNameOfReg(loserReg).name+" nicht angetreten – Spiel kampflos gewertet.");
+}
+
 $("#clearResultBtn").addEventListener("click", async ()=>{
   if(!resultMid) return;
   const {error}=await sb.from("matches").update({ sets:null, home_score:null, away_score:null, status:"pending", display_status:"prep" }).eq("id",resultMid);
