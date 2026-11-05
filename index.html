@@ -2480,20 +2480,36 @@ const MODES=[
           {key:"m107", label:"107 · 1. Runde", sort:7, home:{seed:7}, away:{seed:12}},
           {key:"m108", label:"108 · 1. Runde", sort:8, home:{seed:8}, away:{seed:11}},
           {key:"m109", label:"109 · 1. Runde", sort:9, home:{seed:9}, away:{seed:10}},
-          {key:"p1011", label:"Platz 10–11", sort:910, home:{g:"gD",place:1}, away:{g:"gE",place:1}},
-          {key:"p1213", label:"Platz 12–13", sort:911, home:{g:"gD",place:2}, away:{g:"gE",place:2}},
-          {key:"p1415", label:"Platz 14–15", sort:912, home:{g:"gD",place:3}, away:{g:"gE",place:3}},
-          {key:"p1617", label:"Platz 16–17", sort:913, home:{g:"gD",place:4}, away:{g:"gE",place:4}},
+          // Platzierungsspiele D/E — Nummern wie auf dem Papier-Bogen
+          {key:"p1011", label:"504 · Platz 10–11", sort:504, home:{g:"gD",place:1}, away:{g:"gE",place:1}},
+          {key:"p1213", label:"505 · Platz 12–13", sort:505, home:{g:"gD",place:2}, away:{g:"gE",place:2}},
+          {key:"p1415", label:"604 · Platz 14–15", sort:604, home:{g:"gD",place:3}, away:{g:"gE",place:3}},
+          {key:"p1617", label:"605 · Platz 16–17", sort:605, home:{g:"gD",place:4}, away:{g:"gE",place:4}},
         ],
+        // Round-Robin-Reihenfolge: 3er-Gruppe Nr.1=2v3, Nr.2=1v3, Nr.3=1v2
+        //                          4er-Gruppe Nr.1=1v4, Nr.2=2v3, Nr.3=1v3, Nr.4=4v2, Nr.5=1v2, Nr.6=3v4
         groups:[
-          {key:"gA", name:"Gruppe A", sort:0, sources:[{m:"m101",t:"winner"},{m:"m106",t:"winner"},{m:"m107",t:"winner"}]},
-          {key:"gB", name:"Gruppe B", sort:1, sources:[{m:"m102",t:"winner"},{m:"m105",t:"winner"},{m:"m108",t:"winner"}]},
-          {key:"gC", name:"Gruppe C", sort:2, sources:[{m:"m103",t:"winner"},{m:"m104",t:"winner"},{m:"m109",t:"winner"}]},
-          {key:"gD", name:"Gruppe D", sort:3, sources:[{m:"m102",t:"loser"},{m:"m104",t:"loser"},{m:"m106",t:"loser"},{m:"m108",t:"loser"}]},
-          {key:"gE", name:"Gruppe E", sort:4, sources:[{m:"m103",t:"loser"},{m:"m105",t:"loser"},{m:"m107",t:"loser"},{m:"m109",t:"loser"}]},
-          {key:"pABC1", name:"Platz 1–3", stage:"final", sort:10, sources:[{g:"gA",place:1},{g:"gB",place:1},{g:"gC",place:1}]},
-          {key:"pABC2", name:"Platz 4–6", stage:"final", sort:11, sources:[{g:"gA",place:2},{g:"gB",place:2},{g:"gC",place:2}]},
-          {key:"pABC3", name:"Platz 7–9", stage:"final", sort:12, sources:[{g:"gA",place:3},{g:"gB",place:3},{g:"gC",place:3}]},
+          {key:"gA", name:"Gruppe A", sort:0, sources:[{m:"m101",t:"winner"},{m:"m106",t:"winner"},{m:"m107",t:"winner"}],
+            plan:{3:{no:201,label:"201 · Gruppe A",sort:201}, 1:{no:301,label:"301 · Gruppe A",sort:301}, 2:{no:401,label:"401 · Gruppe A",sort:401}}},
+          {key:"gB", name:"Gruppe B", sort:1, sources:[{m:"m102",t:"winner"},{m:"m105",t:"winner"},{m:"m108",t:"winner"}],
+            plan:{3:{no:202,label:"202 · Gruppe B",sort:202}, 1:{no:302,label:"302 · Gruppe B",sort:302}, 2:{no:402,label:"402 · Gruppe B",sort:402}}},
+          {key:"gC", name:"Gruppe C", sort:2, sources:[{m:"m103",t:"winner"},{m:"m104",t:"winner"},{m:"m109",t:"winner"}],
+            plan:{3:{no:203,label:"203 · Gruppe C",sort:203}, 1:{no:303,label:"303 · Gruppe C",sort:303}, 2:{no:403,label:"403 · Gruppe C",sort:403}}},
+          {key:"gD", name:"Gruppe D", sort:3, sources:[{m:"m102",t:"loser"},{m:"m104",t:"loser"},{m:"m106",t:"loser"},{m:"m108",t:"loser"}],
+            plan:{5:{no:204,label:"204 · Gruppe D",sort:204}, 6:{no:205,label:"205 · Gruppe D",sort:205},
+                  3:{no:304,label:"304 · Gruppe D",sort:304}, 4:{no:305,label:"305 · Gruppe D",sort:305,swap:true},
+                  1:{no:404,label:"404 · Gruppe D",sort:404}, 2:{no:405,label:"405 · Gruppe D",sort:405}}},
+          {key:"gE", name:"Gruppe E", sort:4, sources:[{m:"m103",t:"loser"},{m:"m105",t:"loser"},{m:"m107",t:"loser"},{m:"m109",t:"loser"}],
+            plan:{5:{no:206,label:"206 · Gruppe E",sort:206}, 6:{no:207,label:"207 · Gruppe E",sort:207},
+                  3:{no:306,label:"306 · Gruppe E",sort:306}, 4:{no:307,label:"307 · Gruppe E",sort:307,swap:true},
+                  1:{no:406,label:"406 · Gruppe E",sort:406}, 2:{no:407,label:"407 · Gruppe E",sort:407}}},
+          // Quellen-Reihenfolge A, B, C → 501 A–C, 601 B–C, 701 A–B
+          {key:"pABC1", name:"Platz 1–3", stage:"final", sort:10, sources:[{g:"gA",place:1},{g:"gB",place:1},{g:"gC",place:1}],
+            plan:{2:{no:501,label:"501 · Platz 1–3",sort:501}, 1:{no:601,label:"601 · Platz 1–3",sort:601}, 3:{no:701,label:"701 · Platz 1–3",sort:701}}},
+          {key:"pABC2", name:"Platz 4–6", stage:"final", sort:11, sources:[{g:"gA",place:2},{g:"gB",place:2},{g:"gC",place:2}],
+            plan:{2:{no:502,label:"502 · Platz 4–6",sort:502}, 1:{no:602,label:"602 · Platz 4–6",sort:602}, 3:{no:702,label:"702 · Platz 4–6",sort:702}}},
+          {key:"pABC3", name:"Platz 7–9", stage:"final", sort:12, sources:[{g:"gA",place:3},{g:"gB",place:3},{g:"gC",place:3}],
+            plan:{2:{no:503,label:"503 · Platz 7–9",sort:503}, 1:{no:603,label:"603 · Platz 7–9",sort:603}, 3:{no:703,label:"703 · Platz 7–9",sort:703}}},
         ]
       }};
     } },
@@ -3190,10 +3206,18 @@ function renderGroups(){
   // Gruppen, deren Spiele im Hauptspielplan mitlaufen, kommen ganz unten (nur Tabelle)
   const inlineG = GROUPS.filter(g=> MATCHES.some(m=>m.group_id===g.id && m.label));
   const normalG = GROUPS.filter(g=> !inlineG.includes(g));
-  let html = renderStandalone(need, true);
-  html += normalG.map(g=> groupIsSourced(g.id) ? renderFinalBlock(g,need) : renderGroupBlock(g,need)).join("");
-  html += renderStandalone(need, false);
-  html += inlineG.map(g=> renderGroupBlock(g,need)).join("");
+  let html;
+  if(inlineG.length){
+    // Alle Spiele am Stück (101 … 703), darunter Gruppen-Tabellen, dann Platzierungsspiele-Ergebnis
+    html  = renderStandalone(need, null);
+    html += normalG.map(g=> groupIsSourced(g.id) ? renderFinalBlock(g,need) : renderGroupBlock(g,need)).join("");
+    html += inlineG.map(g=> renderGroupBlock(g,need)).join("");
+    html += renderPlaceMatchResults();
+  }else{
+    html  = renderStandalone(need, true);
+    html += normalG.map(g=> groupIsSourced(g.id) ? renderFinalBlock(g,need) : renderGroupBlock(g,need)).join("");
+    html += renderStandalone(need, false);
+  }
   $("#groupsContainer").innerHTML = html;
 
   $("#groupsContainer").querySelectorAll("[data-delgroup]").forEach(b=>b.addEventListener("click",()=>deleteGroup(b.dataset.delgroup)));
@@ -3308,10 +3332,35 @@ function renderFinalBlock(g,need){
   </div>`;
 }
 
+// Ergebnis der Platzierungsspiele (z. B. 504 → Platz 10/11): Sieger oben, Verlierer unten
+function renderPlaceMatchResults(){
+  const list=MATCHES.filter(m=>m.phase==="placement").map(m=>({m, pr:parsePlaceRange(m.label)}))
+    .filter(x=>x.pr && (x.pr.b-x.pr.a)<=1)
+    .sort((a,b)=>a.pr.a-b.pr.a);
+  if(!list.length) return "";
+  const no=(m)=> (String(m.label||"").match(/^\s*(\d+)/)||[])[1] || "";
+  let rows="";
+  list.forEach(({m,pr})=>{
+    const o=matchOutcome(m);
+    const cell=(reg,txt)=> reg ? regShortS(reg) : `<span style="color:var(--muted);font-weight:400">${txt}</span>`;
+    rows+=`<tr><td class="pos">${pr.a}.</td><td>${cell(o.decided?o.winner:null, `Sieger ${no(m)}`)}</td></tr>`;
+    if(pr.b>pr.a) rows+=`<tr><td class="pos">${pr.b}.</td><td>${cell(o.decided?o.loser:null, `Verlierer ${no(m)}`)}</td></tr>`;
+  });
+  const lo=list[0].pr.a, hi=list[list.length-1].pr.b;
+  return `<div class="group-block">
+    <div class="gb-head"><h3>Platz ${lo}–${hi}<span class="gb-sub">aus den Platzierungsspielen</span></h3></div>
+    <div style="overflow-x:auto"><table class="standings">
+      <thead><tr><th>Pl.</th><th>Spieler</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>
+  </div>`;
+}
+
 function renderStandalone(need, before){
   // Auch Gruppenspiele mit eigener Beschriftung laufen im Hauptspielplan mit
+  // before: true = nur 1. Runde (<100), false = Rest (>=100), null = alle Spiele in einer Liste
   const pm=MATCHES.filter(m=>(m.phase==="placement" || (m.phase==="group" && m.label))
-      && (before ? (m.sort_order||0)<100 : (m.sort_order||0)>=100))
+      && (before==null ? true : before ? (m.sort_order||0)<100 : (m.sort_order||0)>=100))
     .sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
   if(!pm.length) return "";
   const rows=pm.map(m=>{
@@ -3336,7 +3385,7 @@ function renderStandalone(need, before){
     </tr>`;
   }).join("");
   return `<div class="group-block">
-    <div class="gb-head"><h3>${before?"1. Runde":"Platzierungs- &amp; K.-o.-Spiele"}<span class="gb-sub">${need} Gewinnsätze</span></h3></div>
+    <div class="gb-head"><h3>${before==null?"Alle Spiele":before?"1. Runde":"Platzierungs- &amp; K.-o.-Spiele"}<span class="gb-sub">${need} Gewinnsätze</span></h3></div>
     <div style="overflow-x:auto"><table class="matches plan">
       <thead><tr><th>Spiel</th><th>Court</th><th>Status</th><th>Zeit</th><th>Dauer</th><th style="text-align:right">Heim</th><th style="text-align:center">Ergebnis</th><th>Gast</th></tr></thead>
       <tbody>${rows}</tbody>
@@ -3939,7 +3988,8 @@ async function buildRecipe(recipe, parts){
     // damit Gruppenspiele in den Ablauf der übrigen Spiele passen
     flat.forEach(f=>{
       const spec = (g.plan && g.plan[f.no]) || null;
-      const sa=g.sources[f.a-1], sb2=g.sources[f.b-1];
+      let sa=g.sources[f.a-1], sb2=g.sources[f.b-1];
+      if(spec&&spec.swap){ const t=sa; sa=sb2; sb2=t; }   // Heim/Gast wie auf dem Bogen
       const bye=(sa&&sa.bye)||(sb2&&sb2.bye);
       const row={ id:crypto.randomUUID(), event_id:currentEvent.id, group_id:gid[g.key], phase:"group",
         match_no: spec&&spec.no!=null ? spec.no : f.no,
