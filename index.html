@@ -3344,7 +3344,7 @@ function renderPlaceMatchResults(){
     const o=matchOutcome(m);
     const cell=(reg,txt)=> reg ? regShortS(reg) : `<span style="color:var(--muted);font-weight:400">${txt}</span>`;
     rows+=`<tr><td class="pos">${pr.a}.</td><td>${cell(o.decided?o.winner:null, `Sieger ${no(m)}`)}</td></tr>`;
-    if(pr.b>pr.a) rows+=`<tr><td class="pos">${pr.b}.</td><td>${cell(o.decided?o.loser:null, `Verlierer ${no(m)}`)}</td></tr>`;
+    if(pr.b>pr.a) rows+=`<tr><td class="pos">${pr.b}.</td><td>${cell(o.decided?o.loser:null, o.decided?"entfällt (Aufgabe/Freilos)":`Verlierer ${no(m)}`)}</td></tr>`;
   });
   const lo=list[0].pr.a, hi=list[list.length-1].pr.b;
   return `<div class="group-block">
@@ -3500,21 +3500,21 @@ function computeEventPlacement(){
     if(!groupComplete(GROUPS[0].id)) complete=false;
     computeStandings(GROUPS[0].id).forEach((s,i)=> place[i+1]=s.regId);
   }
-  const participants=new Set(Object.values(place).filter(Boolean)).size;
-
-  // Aufgegebene Spieler ans Ende: der zuerst Verletzte wird Letzter
+  // Regel (gilt für alle Formate): Wer die Rangliste nicht beendet (Aufgabe), erhält Rang 99
+  // und damit die niedrigste Punktzahl. Sein eigentlicher Rang entfällt (die übrigen Spieler
+  // behalten ihren Rang, niemand rückt auf). Der Multiplikator zählt alle gestarteten Spieler.
   const retired=currentRegs.filter(r=>r.retired_at).sort((a,b)=> new Date(a.retired_at)-new Date(b.retired_at)).map(r=>r.id);
-  if(retired.length){
-    // aktuelle Reihenfolge (Rang 1..) ohne Aufgeber
-    const ranks=Object.keys(place).map(Number).sort((a,b)=>a-b);
-    const others=ranks.map(r=>place[r]).filter(id=>id && !retired.includes(id));
-    const total=others.length+retired.length;
-    // Aufgeber: zuerst verletzt -> höchste (schlechteste) Platznummer
-    const finalOrder=others.concat(retired.slice().reverse());
-    const np={}; finalOrder.forEach((id,i)=> np[i+1]=id);
-    return { place:np, complete, participants:total, retiredCount:retired.length };
-  }
-  return { place, complete, participants, retiredCount:0 };
+  Object.keys(place).forEach(r=>{ if(!place[r] || retired.includes(place[r])) delete place[r]; });
+  const others=new Set(Object.values(place)).size;
+  const participants=others+retired.length;
+  return { place, retired, complete, participants, retiredCount:retired.length };
+}
+const RETIRED_RANK = 99;
+// Alle Ergebniszeilen in Reihenfolge: [{rank, regId, retired}]
+function placementRows(res){
+  const rows=Object.keys(res.place).map(Number).sort((a,b)=>a-b).map(r=>({rank:r, regId:res.place[r], retired:false}));
+  (res.retired||[]).forEach(id=> rows.push({rank:RETIRED_RANK, regId:id, retired:true}));
+  return rows;
 }
 function playerNameOfReg(regId){
   const r=currentRegs.find(x=>x.id===regId); if(!r) return {pid:null, name:"—"};
@@ -3627,30 +3627,31 @@ function openPlacementModal(){
   if(!currentEvent){ toast("Bitte zuerst ein Event öffnen.",true); return; }
   if(!GROUPS.length && !MATCHES.length){ toast("Für dieses Event ist noch kein Turnier aufgesetzt.",true); return; }
   const res=computeEventPlacement(); placementCache=res;
-  const {place, complete, participants}=res;
-  const ranks=Object.keys(place).map(Number).sort((a,b)=>a-b);
+  const {complete, participants}=res;
+  const rows=placementRows(res);
   const payLabel=(pm)=> pm==="cash"?"bar":pm==="account"?"Konto":"offen";
   $("#placementInfo").innerHTML = `${participants} Teilnehmer · Multiplikator ×${multiplierFor(participants).toFixed(2).replace(".",",")}`+
+    (res.retiredCount?` · ${res.retiredCount}× Aufgabe (Rang ${RETIRED_RANK})`:"")+
     (complete?` · <span style="color:var(--ok)">vollständig gespielt</span>`
              :` · <span style="color:var(--danger)">noch nicht fertig – erst nach Abschluss speicherbar</span>`);
-  $("#placementList").innerHTML = ranks.length? `<table class="matches" style="width:100%"><thead><tr><th>Platz</th><th>Spieler</th><th class="st">Punkte</th><th class="st">Gebühr</th><th>Zahlung</th></tr></thead><tbody>`+
-    ranks.map(r=>{ const regId=place[r]; const nm=playerNameOfReg(regId); const reg=currentRegs.find(x=>x.id===regId);
+  $("#placementList").innerHTML = rows.length? `<table class="matches" style="width:100%"><thead><tr><th>Platz</th><th>Spieler</th><th class="st">Punkte</th><th class="st">Gebühr</th><th>Zahlung</th></tr></thead><tbody>`+
+    rows.map(({rank,regId,retired})=>{ const nm=playerNameOfReg(regId); const reg=currentRegs.find(x=>x.id===regId);
       const fee=reg?feeForReg(reg):0; const pm=reg?reg.payment_method:"";
-      return `<tr><td class="mno">${r}</td><td>${esc(nm.name)}</td><td class="st mono">${eventPoints(r,participants).toLocaleString("de-DE")}</td><td class="st mono">${eur(fee)}</td><td>${payLabel(pm)}</td></tr>`; }).join("")+
+      const tag=retired?` <span class="badge" style="background:#FBEAE9;color:#C4362F;border-color:#f3c9c6">aufgegeben</span>`:"";
+      return `<tr><td class="mno">${rank}</td><td>${esc(nm.name)}${tag}</td><td class="st mono">${eventPoints(rank,participants).toLocaleString("de-DE")}</td><td class="st mono">${eur(fee)}</td><td>${payLabel(pm)}</td></tr>`; }).join("")+
     `</tbody></table>` : `<p class="hint">Noch keine Platzierungen ermittelbar.</p>`;
-  $("#savePlacementBtn").disabled = !complete || !ranks.length;
+  $("#savePlacementBtn").disabled = !complete || !rows.length;
   $("#placementModal").classList.remove("hidden");
 }
 function placementEmail(){
   if(!placementCache) return;
-  const {place, participants}=placementCache;
-  const ranks=Object.keys(place).map(Number).sort((a,b)=>a-b);
+  const {participants}=placementCache;
   const payLabel=(pm)=> pm==="cash"?"bar":pm==="account"?"Konto":"offen";
   let total=0, cash=0, acct=0;
-  const lines=ranks.map(r=>{ const reg=currentRegs.find(x=>x.id===place[r]); const nm=playerNameOfReg(place[r]);
+  const lines=placementRows(placementCache).map(({rank,regId,retired})=>{ const reg=currentRegs.find(x=>x.id===regId); const nm=playerNameOfReg(regId);
     const fee=reg?feeForReg(reg):0; const pm=reg?reg.payment_method:""; total+=fee;
     if(pm==="cash")cash+=fee; else if(pm==="account")acct+=fee;
-    return `${String(r).padStart(2)}. ${nm.name} — ${eur(fee)} (${payLabel(pm)})`; });
+    return `${String(rank).padStart(2)}. ${nm.name}${retired?" (aufgegeben)":""} — ${eur(fee)} (${payLabel(pm)})`; });
   const body =
     `Endabrechnung ${currentEvent.name||"Turnier"}${currentEvent.event_date?" ("+fmtDate(currentEvent.event_date)+")":""}\n`+
     `Teilnehmer: ${participants}\n\n`+
@@ -3661,9 +3662,9 @@ function placementEmail(){
 }
 async function finalizeEvent(){
   if(!placementCache || !placementCache.complete) return;
-  const {place, participants}=placementCache;
-  const rows=Object.keys(place).map(Number).map(rank=>{
-    const nm=playerNameOfReg(place[rank]);
+  const {participants}=placementCache;
+  const rows=placementRows(placementCache).map(({rank,regId})=>{
+    const nm=playerNameOfReg(regId);
     return { event_id:currentEvent.id, player_id:nm.pid, name:nm.name, rank, participants,
              rank_points:pointsForRank(rank), points:eventPoints(rank,participants) };
   });
